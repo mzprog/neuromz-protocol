@@ -1,0 +1,106 @@
+# CI for the protocol: the wire library and its tests on Linux (GCC, Clang;
+# Release and ASan + UBSan with a longer fuzz run) and Windows (MSVC); and
+# the conformance suite against a live neuromz-server built from its
+# repository with this checkout of the protocol, on Linux and Windows.
+name: CI
+on:
+  push:
+    branches: [master]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: Linux ${{ matrix.cc }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cc: [gcc, clang]
+    steps:
+      - uses: actions/checkout@v5
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=${{ matrix.cc }}
+      - name: Build
+        run: cmake --build build -j 4
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+  sanitize:
+    name: Linux ${{ matrix.cc }} ASan + UBSan (and a fuzz run)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cc: [gcc, clang]
+    steps:
+      - uses: actions/checkout@v5
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DNMZP_SANITIZE=ON -DCMAKE_C_COMPILER=${{ matrix.cc }}
+      - name: Build
+        run: cmake --build build -j 4
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+      - name: Fuzz the parsers (JSON, HTTP heads, chunked bodies, SSE) with a fresh seed
+        run: ./build/fuzz_wire 2000000 ${{ github.run_id }}
+
+  windows:
+    name: Windows MSVC
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Configure
+        run: cmake -S . -B build
+      - name: Build
+        run: cmake --build build --config Release -j 4
+      - name: Test
+        run: ctest --test-dir build -C Release --output-on-failure
+
+  # The suite against a live server: neuromz-server (its master branch, with
+  # the NeuroMZ library at the tag it pins) built with this checkout of the
+  # protocol, started on a free port with an admin and a read-only token.
+  conformance:
+    name: Conformance against neuromz-server (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: protocol
+      - uses: actions/checkout@v5
+        with:
+          repository: mzprog/neuromz-server
+          path: server
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: runner.os == 'Windows'
+      - name: Build the server with this protocol
+        shell: bash
+        run: |
+          cmake -S server -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DNMZS_BUILD_TESTS=OFF \
+                -DNMZP_LOCAL_PATH="$GITHUB_WORKSPACE/protocol"
+          cmake --build build -j 4
+      - name: Start it and run the conformance suite
+        shell: bash
+        run: |
+          set -eu
+          mkdir -p run
+          admin=$(openssl rand -hex 24); reader=$(openssl rand -hex 24)
+          printf 'admin admin %s\nreader read %s\n' "$admin" "$reader" > run/tokens.conf
+          ./build/neuromz-server --port 0 --port-file run/port --models-dir run/models \
+              --datasets-dir run/datasets --tokens-file run/tokens.conf --log-file run/server.log &
+          pid=$!
+          for i in $(seq 200); do [ -s run/port ] && break; sleep 0.1; done
+          port=$(tr -d '\r\n' < run/port)
+          status=0
+          ./build/_deps/neuromz-protocol-local/nmz-conformance --url "http://127.0.0.1:$port" \
+              --token "$admin" --read-token "$reader" || status=$?
+          kill "$pid" 2>/dev/null || true
+          echo "--- the server's log (last lines)"; tail -n 40 run/server.log || true
+          exit $status
