@@ -577,7 +577,9 @@ components:
           type: object
           properties:
             max_upload_mb: {type: number}
+            max_json_kb: {type: number}
             max_model_mb: {type: number}
+            max_layer_size: {type: integer, description: "the largest number in a model description"}
             max_epochs: {type: integer}
             max_concurrent_jobs: {type: integer}
             queue_size: {type: integer}

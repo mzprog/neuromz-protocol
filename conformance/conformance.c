@@ -23,6 +23,7 @@ static char g_prefix[48];
 static char g_why[600];
 static int g_allow_client = 1, g_allow_server = 1, g_trace_enabled = 1;
 static long g_max_epochs = 1000;
+static double g_max_layer = 0; /* limits.max_layer_size, when the server reports one */
 
 /* ---------------------------------------------------------- reporting */
 
@@ -206,6 +207,8 @@ static void t_capabilities(void) {
     {
         double me = 0;
         if (nmzp_json_get_num(nmzp_json_get(rp.j, "limits"), "max_epochs", &me) && me >= 1) g_max_epochs = (long)me;
+        if (nmzp_json_get_num(nmzp_json_get(rp.j, "limits"), "max_layer_size", &me) && me >= 1 && me < 1e9)
+            g_max_layer = me;
     }
     tr = nmzp_json_get(rp.j, "trace");
     EXPECT(tr && nmzp_json_get_bool(tr, "enabled", &g_trace_enabled), "trace.enabled missing");
@@ -340,6 +343,16 @@ static void t_models(void) {
     EXPECT(is_error(&rp, 422, "invalid_argument"), "a bad layer spec: %s", g_why);
     EXPECT(strstr(err_msg(&rp), "layer spec"), "the library's message is not passed on: %s", err_msg(&rp));
     reply_free(&rp);
+    if (g_max_layer > 0) { /* a layer above the server's limit is refused before it is built (PROTOCOL §11) */
+        snprintf(body, sizeof body, "{\"name\": \"%s\", \"args\": [\"2\", \"%.0f:relu\", \"1\"]}", nm("huge"),
+                 g_max_layer + 1);
+        json_call("POST", "/v1/models", body, &rp);
+        EXPECT(is_error(&rp, 422, "invalid_argument"), "a layer above max_layer_size: %s", g_why);
+        reply_free(&rp);
+        EXPECT(json_call("GET", pth("/v1/models/%s", nm("huge")), NULL, &rp) == 404, "a refused model was stored: %d",
+               rp.r.status);
+        reply_free(&rp);
+    }
     snprintf(body, sizeof body,
              "{\"name\": \"%s\", \"input\": \"4\", \"layers\": [\"8:relu\", \"3:softmax\"], \"options\": {\"lr\": 0.02, "
              "\"epochs\": 5, \"shuffle\": false}}",

@@ -126,7 +126,7 @@ device, a batch size and a save policy before it sends work:
  "default_device": "cuda",
  "presets": [{"name": "mnist-cnn", "summary": "small convolutional network for MNIST digits", "input": "1x28x28"}],
  "save": {"default": "server", "allowed": ["server", "client"]},
- "limits": {"max_upload_mb": 64, "max_model_mb": 512, "max_epochs": 1000,
+ "limits": {"max_upload_mb": 64, "max_json_kb": 1024, "max_model_mb": 512, "max_layer_size": 16384, "max_epochs": 1000,
             "max_concurrent_jobs": 2, "queue_size": 16, "quota_per_user_mb": 2048,
             "client_model_hours": 24, "keep_finished_hours": 24},
  "trace": {"enabled": true, "max_events": 2000},
@@ -463,10 +463,12 @@ save_not_allowed`.
 
 `capabilities.limits` lists the server's limits. Bodies above
 `max_upload_mb` (model and dataset files) or the JSON limit get `413`;
-`epochs` above `max_epochs` get `422`; a stored model above `max_model_mb`
-gets `413`. A request head must arrive within the header timeout and the
-body within the body timeout (`408`). Inference is bounded by the size of
-its request (samples, characters to generate, trace events), not by a clock.
+`epochs` above `max_epochs` get `422`; a model description with a number
+(units, filters, a dimension) above `max_layer_size` gets `422` before
+anything is built; a model above `max_model_mb` gets `413`. A request
+head must arrive within the header timeout and the body within the body
+timeout (`408`). Inference is bounded by the size of its request (samples,
+characters to generate, trace events), not by a clock.
 
 ## 12. Browsers
 
