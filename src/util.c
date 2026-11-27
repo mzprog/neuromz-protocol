@@ -1,5 +1,7 @@
-/* util.c — SHA-256 (FIPS 180-4), constant-time comparison, operating
- * system randomness, the protocol's name rules, RFC 3339 times, clocks. */
+/* util.c — SHA-256 (FIPS 180-4), HMAC-SHA256 (RFC 2104) and the
+ * protocol's key derivation (PROTOCOL §6), constant-time comparison,
+ * operating system randomness, UTF-8 validation, the protocol's name
+ * rules, RFC 3339 times, clocks. */
 #if !defined(_WIN32)
 #define _POSIX_C_SOURCE 200809L
 #endif
@@ -115,6 +117,71 @@ void nmzp_sha256_hex(const void *p, size_t n, char out[65]) {
     nmzp_hex(d, 32, out);
 }
 
+void nmzp_sha256_of(const void *p, size_t n, unsigned char out[32]) {
+    nmzp_sha256 s;
+    nmzp_sha256_init(&s);
+    nmzp_sha256_update(&s, p, n);
+    nmzp_sha256_final(&s, out);
+}
+
+/* --------------------------------------------------------------- HMAC */
+
+void nmzp_hmac_init(nmzp_hmac *h, const void *key, size_t kn) {
+    unsigned char k[64], pad[64];
+    int i;
+    memset(k, 0, sizeof k);
+    if (kn > 64) nmzp_sha256_of(key, kn, k); /* a long key is hashed first */
+    else if (kn) memcpy(k, key, kn);
+    for (i = 0; i < 64; i++) pad[i] = (unsigned char)(k[i] ^ 0x36);
+    nmzp_sha256_init(&h->inner);
+    nmzp_sha256_update(&h->inner, pad, 64);
+    for (i = 0; i < 64; i++) pad[i] = (unsigned char)(k[i] ^ 0x5c);
+    nmzp_sha256_init(&h->outer);
+    nmzp_sha256_update(&h->outer, pad, 64);
+    memset(k, 0, sizeof k);
+    memset(pad, 0, sizeof pad);
+}
+
+void nmzp_hmac_update(nmzp_hmac *h, const void *p, size_t n) { nmzp_sha256_update(&h->inner, p, n); }
+
+void nmzp_hmac_final(nmzp_hmac *h, unsigned char out[32]) {
+    unsigned char d[32];
+    nmzp_sha256_final(&h->inner, d);
+    nmzp_sha256_update(&h->outer, d, 32);
+    nmzp_sha256_final(&h->outer, out);
+    memset(d, 0, sizeof d);
+}
+
+void nmzp_hmac_sha256(const void *key, size_t kn, const void *msg, size_t n, unsigned char out[32]) {
+    nmzp_hmac h;
+    nmzp_hmac_init(&h, key, kn);
+    nmzp_hmac_update(&h, msg, n);
+    nmzp_hmac_final(&h, out);
+}
+
+/* ------------------------------------------- the key and the proofs (§6) */
+
+void nmzp_auth_key(const char *token, size_t n, unsigned char key[32]) { nmzp_sha256_of(token, n, key); }
+
+void nmzp_auth_key_id(const unsigned char key[32], unsigned char id[8]) {
+    static const char label[] = "neuromz key id";
+    unsigned char d[32];
+    nmzp_hmac_sha256(key, 32, label, sizeof label - 1, d);
+    memcpy(id, d, 8);
+}
+
+void nmzp_auth_proof(const unsigned char key[32], int server, const unsigned char ns[32], const unsigned char nc[32],
+                     unsigned char out[32]) {
+    static const char lc[] = "neuromz client proof", ls[] = "neuromz server proof";
+    nmzp_hmac h;
+    nmzp_hmac_init(&h, key, 32);
+    if (server) nmzp_hmac_update(&h, ls, sizeof ls - 1);
+    else nmzp_hmac_update(&h, lc, sizeof lc - 1);
+    nmzp_hmac_update(&h, ns, 32);
+    nmzp_hmac_update(&h, nc, 32);
+    nmzp_hmac_final(&h, out);
+}
+
 int nmzp_ct_equal(const void *a, const void *b, size_t n) {
     const volatile unsigned char *x = (const volatile unsigned char *)a, *y = (const volatile unsigned char *)b;
     unsigned char diff = 0;
@@ -142,6 +209,34 @@ int nmzp_random(void *p, size_t n) {
     close(fd);
     return 0;
 #endif
+}
+
+/* --------------------------------------------------------------- UTF-8 */
+
+int nmzp_utf8_valid(const char *s, size_t n) {
+    const unsigned char *p = (const unsigned char *)s, *end = p + n;
+    while (p < end) {
+        unsigned c = *p;
+        size_t k, i;
+        unsigned long cp;
+        if (c < 0x80) {
+            p++;
+            continue;
+        }
+        if (c >= 0xC2 && c <= 0xDF) k = 2, cp = c & 0x1F;
+        else if (c >= 0xE0 && c <= 0xEF) k = 3, cp = c & 0x0F;
+        else if (c >= 0xF0 && c <= 0xF4) k = 4, cp = c & 0x07;
+        else return 0; /* a continuation byte, C0/C1 (overlong), F5..FF */
+        if ((size_t)(end - p) < k) return 0;
+        for (i = 1; i < k; i++) {
+            if ((p[i] & 0xC0) != 0x80) return 0;
+            cp = (cp << 6) | (p[i] & 0x3Fu);
+        }
+        if ((k == 3 && cp < 0x800) || (k == 4 && (cp < 0x10000 || cp > 0x10FFFF)) || (cp >= 0xD800 && cp <= 0xDFFF))
+            return 0;
+        p += k;
+    }
+    return 1;
 }
 
 /* -------------------------------------------------------------- names */

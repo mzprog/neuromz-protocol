@@ -342,3 +342,12 @@ void nmzp_close(nmzp_socket s) {
 #endif
     CLOSE(sys(s));
 }
+
+void nmzp_shutdown(nmzp_socket s) {
+    if (s == NMZP_NO_SOCKET) return;
+#if defined(_WIN32)
+    shutdown(sys(s), SD_BOTH);
+#else
+    shutdown(sys(s), SHUT_RDWR);
+#endif
+}
