@@ -154,7 +154,7 @@ static int join_strs(const nmzp_val *arr, char *out, size_t n) {
 }
 
 int nmzp_client_connect(nmzp_client *c, nmzp_error *e) {
-    char err[400], msg[700];
+    char err[400], msg[1100];
     nmzp_frame f;
     nmzp_val *g = NULL, *wv = NULL;
     nmzp_buf hello;
