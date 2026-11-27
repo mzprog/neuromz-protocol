@@ -1,0 +1,6 @@
+# The same bytes on every system: sources, scripts and the example data are
+# checked out with LF line endings on Windows too (the smoke test and the
+# README's numbers depend on the exact data files).
+* text=auto eol=lf
+*.nmz binary
+*.pdf binary

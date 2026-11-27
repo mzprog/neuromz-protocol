@@ -1,0 +1,13 @@
+# build trees
+/build*/
+/out/
+# editors and tools
+.vs/
+.vscode/
+.idea/
+*.swp
+# outputs and secrets that must never be committed
+*.nmz
+*.token
+tokens.conf
+*.log
