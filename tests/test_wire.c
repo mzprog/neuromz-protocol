@@ -1,6 +1,9 @@
-/* test_wire.c — unit tests of the wire library: JSON, HTTP heads, chunked
- * bodies, query strings, Server-Sent Events, SHA-256, names, times. */
+/* test_wire.c — unit tests of nmzp: the payload codec (MessagePack subset),
+ * frames, the handshake prefix, HMAC-SHA256 and the key derivation, UTF-8,
+ * SHA-256, JSON, names, times and addresses. The shared vectors are
+ * checked by nmz-vectors (tests/vectors.c). */
 #include "nmzp.h"
+#include "nmzp_json.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -17,6 +20,26 @@ static int g_checks, g_fails;
             fprintf(stderr, "FAIL %s:%d: %s\n", __FILE__, __LINE__, #c);                                               \
         }                                                                                                              \
     } while (0)
+
+static int hex_is(const nmzp_buf *b, const char *hex) {
+    char *h = malloc(b->len * 2 + 1);
+    int r;
+    nmzp_hex((const unsigned char *)b->data, b->len, h);
+    r = !strcmp(h, hex);
+    if (!r) fprintf(stderr, "  got %s\n  want %s\n", h, hex);
+    free(h);
+    return r;
+}
+
+static size_t unhex(const char *hex, unsigned char *out) {
+    size_t len = strlen(hex) / 2, j;
+    for (j = 0; j < len; j++) {
+        unsigned x = 0;
+        sscanf(hex + 2 * j, "%2x", &x);
+        out[j] = (unsigned char)x;
+    }
+    return len;
+}
 
 static nmzp_json *parse(const char *s) { return nmzp_json_parse(s, strlen(s), 0, NULL, 0); }
 
@@ -84,127 +107,302 @@ static void test_json(void) {
     nmzp_buf_free(&out);
 }
 
-static const char k_req[] = "POST /v1/models/a%20b?x=1&save=client&q=a%2Bb+c HTTP/1.1\r\n"
-                            "Host: localhost:8470\r\nContent-Length: 12\r\nAuthorization: Bearer t0k\r\n"
-                            "X-Pad:   spaced value  \r\n\r\n";
 
-static int parse_req(const char *s, nmzp_http_head *h) {
-    char err[200];
-    return nmzp_http_parse_request(s, strlen(s), h, err, sizeof err);
-}
 
-static void test_http(void) {
-    nmzp_http_head h;
-    char v[64];
-    CHECK(nmzp_http_head_end(k_req, strlen(k_req)) == strlen(k_req));
-    CHECK(nmzp_http_head_end(k_req, strlen(k_req) - 1) == 0);
-    CHECK(parse_req(k_req, &h) == 0);
-    CHECK(!strcmp(h.method, "POST") && !strcmp(h.path, "/v1/models/a b") && h.content_length == 12 && h.keep_alive);
-    CHECK(!strcmp(nmzp_http_header(&h, "authorization"), "Bearer t0k"));
-    CHECK(!strcmp(nmzp_http_header(&h, "x-pad"), "spaced value"));
-    CHECK(nmzp_query_get(h.query, "save", v, sizeof v) && !strcmp(v, "client"));
-    CHECK(nmzp_query_get(h.query, "q", v, sizeof v) && !strcmp(v, "a+b c"));
-    CHECK(!nmzp_query_get(h.query, "nope", v, sizeof v));
-    nmzp_http_head_free(&h);
-    /* refused heads */
-    CHECK(parse_req("GET / HTTP/1.1\r\n\r\n", &h) == 400); /* no Host */
-    nmzp_http_head_free(&h);
-    CHECK(parse_req("GET / HTTP/2.0\r\nHost: x\r\n\r\n", &h) == 505);
-    nmzp_http_head_free(&h);
-    CHECK(parse_req("GET / HTTP/1.1\r\nHost: x\r\nContent-Length: 5\r\nTransfer-Encoding: chunked\r\n\r\n", &h) == 400);
-    nmzp_http_head_free(&h);
-    CHECK(parse_req("GET / HTTP/1.1\r\nHost: x\r\nContent-Length: 5\r\nContent-Length: 6\r\n\r\n", &h) == 400);
-    nmzp_http_head_free(&h);
-    CHECK(parse_req("GET / HTTP/1.1\r\nHost: x\r\nContent-Length: -1\r\n\r\n", &h) == 400);
-    nmzp_http_head_free(&h);
-    CHECK(parse_req("GET / HTTP/1.1\r\nHost: x\r\n folded\r\n\r\n", &h) == 400);
-    nmzp_http_head_free(&h);
-    CHECK(parse_req("GET /a\x01 HTTP/1.1\r\nHost: x\r\n\r\n", &h) == 400);
-    nmzp_http_head_free(&h);
-    CHECK(parse_req("GET /%zz HTTP/1.1\r\nHost: x\r\n\r\n", &h) == 400);
-    nmzp_http_head_free(&h);
-    CHECK(parse_req("GET /%00 HTTP/1.1\r\nHost: x\r\n\r\n", &h) == 400);
-    nmzp_http_head_free(&h);
-    CHECK(parse_req("GET http://x/ HTTP/1.1\r\nHost: x\r\n\r\n", &h) == 400);
-    nmzp_http_head_free(&h);
-    CHECK(parse_req("GET / HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: gzip\r\n\r\n", &h) == 501);
-    nmzp_http_head_free(&h);
-    CHECK(parse_req("GET / HTTP/1.0\r\n\r\n", &h) == 0 && !h.keep_alive);
-    nmzp_http_head_free(&h);
-    {
-        char err[100];
-        const char *resp = "HTTP/1.1 404 Not Found\r\nContent-Length: 2\r\nConnection: close\r\n\r\n";
-        CHECK(nmzp_http_parse_response(resp, strlen(resp), &h, err, sizeof err) == 0);
-        CHECK(h.status == 404 && !strcmp(h.reason, "Not Found") && h.content_length == 2 && !h.keep_alive);
-        nmzp_http_head_free(&h);
-    }
-}
-
-static void test_chunked(void) {
-    const char *body = "4\r\nWiki\r\n6;ext=1\r\npedia \r\nE\r\nin \r\n\r\nchunks.\r\n0\r\nTrailer: x\r\n\r\nNEXT";
-    nmzp_chunked c;
-    nmzp_buf out;
-    size_t i, n = strlen(body), used = 0;
-    long k;
-    /* fed one byte at a time */
-    nmzp_chunked_init(&c);
-    nmzp_buf_init(&out);
-    for (i = 0; i < n && !c.done; i++) {
-        k = nmzp_chunked_feed(&c, body + i, 1, &out, 1 << 20);
-        CHECK(k == 1);
-        used += (size_t)k;
-    }
-    CHECK(c.done && !strcmp(out.data, "Wikipedia in \r\n\r\nchunks.") && !strcmp(body + used, "NEXT"));
-    nmzp_buf_free(&out);
-    /* all at once, with a limit */
-    nmzp_chunked_init(&c);
-    nmzp_buf_init(&out);
-    CHECK(nmzp_chunked_feed(&c, body, n, &out, 5) == -2);
-    nmzp_buf_free(&out);
-    nmzp_chunked_init(&c);
-    nmzp_buf_init(&out);
-    CHECK(nmzp_chunked_feed(&c, "zz\r\n", 4, &out, 100) == -1);
-    nmzp_chunked_init(&c);
-    CHECK(nmzp_chunked_feed(&c, "ffffffffffffffffff\r\n", 20, &out, 100) == -1);
-    nmzp_buf_free(&out);
-}
-
-typedef struct got {
-    int n;
-    char event[8][32], id[8][32], data[8][64];
-} got;
-
-static int on_ev(const char *e, const char *id, const char *d, void *u) {
-    got *g = (got *)u;
-    if (g->n < 8) {
-        snprintf(g->event[g->n], 32, "%s", e);
-        snprintf(g->id[g->n], 32, "%s", id);
-        snprintf(g->data[g->n], 64, "%s", d);
-    }
-    g->n++;
-    return 0;
-}
-
-static void test_sse(void) {
-    nmzp_sse s;
-    got g;
+static void test_mpack_write(void) {
     nmzp_buf b;
-    const char *text;
-    size_t i;
-    memset(&g, 0, sizeof g);
+    nmzp_mw w;
     nmzp_buf_init(&b);
-    nmzp_sse_write(&b, "epoch", "3", "{\"a\":1}");
-    nmzp_sse_write(&b, NULL, NULL, "two\nlines");
-    nmzp_buf_str(&b, ": a comment\r\nevent: end\r\ndata: x\r\n\r\n");
-    text = b.data;
-    nmzp_sse_init(&s, on_ev, &g);
-    for (i = 0; text[i]; i++) CHECK(nmzp_sse_feed(&s, text + i, 1) == 0);
-    nmzp_sse_free(&s);
-    CHECK(g.n == 3);
-    CHECK(!strcmp(g.event[0], "epoch") && !strcmp(g.id[0], "3") && !strcmp(g.data[0], "{\"a\":1}"));
-    CHECK(!strcmp(g.event[1], "message") && !strcmp(g.data[1], "two\nlines"));
-    CHECK(!strcmp(g.event[2], "end") && !strcmp(g.data[2], "x") && !strcmp(g.id[2], "3"));
+    nmzp_mw_init(&w, &b);
+    nmzp_mw_map(&w);
+    nmzp_mw_kint(&w, "a", 200);
+    nmzp_mw_kint(&w, "b", -33);
+    nmzp_mw_kint(&w, "c", 65536);
+    nmzp_mw_kfloat(&w, "d", 1.5);
+    nmzp_mw_kfloat(&w, "e", NAN); /* not finite: nil */
+    nmzp_mw_kbool(&w, "f", 1);
+    nmzp_mw_kstr(&w, "g", NULL);
+    nmzp_mw_end_map(&w);
+    CHECK(nmzp_mw_done(&w) == 0);
+    CHECK(hex_is(&b, "87a161ccc8a162d0dfa163ce00010000a164cb3ff8000000000000a165c0a166c3a167c0"));
+    /* headers grow with the counts and shrink back: 16 elements are an array 16 */
+    nmzp_buf_clear(&b);
+    nmzp_mw_init(&w, &b);
+    nmzp_mw_arr(&w);
+    {
+        int i;
+        for (i = 0; i < 16; i++) nmzp_mw_int(&w, i);
+    }
+    nmzp_mw_end_arr(&w);
+    CHECK(b.len == 3 + 16 && (unsigned char)b.data[0] == 0xdc && b.data[1] == 0 && b.data[2] == 16);
+    /* nested: the inner header shrinks first, then the outer */
+    nmzp_buf_clear(&b);
+    nmzp_mw_init(&w, &b);
+    nmzp_mw_map(&w);
+    nmzp_mw_key(&w, "x");
+    nmzp_mw_arr(&w);
+    nmzp_mw_arr(&w);
+    nmzp_mw_end_arr(&w);
+    nmzp_mw_int(&w, -1);
+    nmzp_mw_end_arr(&w);
+    nmzp_mw_end_map(&w);
+    CHECK(hex_is(&b, "81a1789290ff"));
+    /* misuse is noticed */
+    nmzp_buf_clear(&b);
+    nmzp_mw_init(&w, &b);
+    nmzp_mw_map(&w);
+    nmzp_mw_int(&w, 1); /* a value where a key belongs */
+    nmzp_mw_end_map(&w);
+    CHECK(nmzp_mw_done(&w) != 0);
+    nmzp_buf_clear(&b);
+    nmzp_mw_init(&w, &b);
+    nmzp_mw_map(&w);
+    nmzp_mw_key(&w, "k"); /* a key without its value */
+    nmzp_mw_end_map(&w);
+    CHECK(nmzp_mw_done(&w) != 0);
+    nmzp_buf_clear(&b);
+    nmzp_mw_init(&w, &b);
+    nmzp_mw_arr(&w); /* not closed */
+    CHECK(nmzp_mw_done(&w) != 0);
+    { /* f32 */
+        float v[2] = {1.0f, -2.0f}, back[2];
+        nmzp_buf_clear(&b);
+        nmzp_mw_init(&w, &b);
+        nmzp_mw_f32(&w, v, 2);
+        CHECK(hex_is(&b, "c4080000803f000000c0"));
+        nmzp_f32_read(b.data + 2, 2, back);
+        CHECK(back[0] == 1.0f && back[1] == -2.0f);
+    }
     nmzp_buf_free(&b);
+}
+
+static void test_mpack_read(void) {
+    unsigned char doc[64];
+    size_t dn = unhex("83a26f70a66865616c7468a16ed1ff00a17892cb3ff8000000000000c40107", doc);
+    char err[200];
+    nmzp_val *v = nmzp_decode(doc, dn, err, sizeof err);
+    long long i = 0;
+    double d = 0;
+    size_t n = 0;
+    CHECK(v && v->type == NMZP_MAP && v->n == 3);
+    CHECK(v && !strcmp(nmzp_get_str(v, "op"), "health"));
+    CHECK(nmzp_get_int(v, "n", &i) && i == -256);
+    CHECK(nmzp_num(nmzp_at(nmzp_get(v, "x"), 0), &d) && d == 1.5);
+    CHECK(nmzp_bin(nmzp_at(nmzp_get(v, "x"), 1), &n) && n == 1 && nmzp_bin(nmzp_at(nmzp_get(v, "x"), 1), NULL)[0] == 7);
+    CHECK(nmzp_get(v, "missing") == NULL && nmzp_is_nil(nmzp_get(v, "missing")) && nmzp_get_str(v, "n") == NULL);
+    CHECK(nmzp_int(nmzp_at(nmzp_get(v, "x"), 0), &i) == 0); /* 1.5 is not a whole number */
+    { /* written again, it is the same bytes (they are canonical) */
+        nmzp_buf b;
+        nmzp_mw w;
+        nmzp_buf_init(&b);
+        nmzp_mw_init(&w, &b);
+        nmzp_mw_val(&w, v);
+        CHECK(b.len == dn && !memcmp(b.data, doc, dn));
+        nmzp_buf_free(&b);
+    }
+    nmzp_val_free(v);
+    /* whole floats count as ints, ints as floats */
+    dn = unhex("82a161cb4000000000000000a16205", doc);
+    v = nmzp_decode(doc, dn, NULL, 0);
+    CHECK(v && nmzp_get_int(v, "a", &i) && i == 2 && nmzp_get_num(v, "b", &d) && d == 5);
+    nmzp_val_free(v);
+    /* refusals, with a reason */
+    {
+        static const struct {
+            const char *hex, *why;
+        } bad[] = {{"", "empty"},
+                   {"01", "not a map"},
+                   {"81a16101ff", "trailing"},
+                   {"82a16101a16102", "twice"},
+                   {"81a2006101", "U+0000"},
+                   {"8101a161", "not a str"},
+                   {"81a161c1", "c1"},
+                   {"81a161d40000", "extension"},
+                   {"81a161a2c328", "UTF-8"},
+                   {"81a161cf8000000000000000", "2^63"},
+                   {"81a161ddffffffff", "claims more"},
+                   {"81a161dbffffffff", "ends inside"},
+                   {NULL, NULL}};
+        int k;
+        for (k = 0; bad[k].hex; k++) {
+            unsigned char raw[64];
+            size_t len = unhex(bad[k].hex, raw);
+            err[0] = '\0';
+            v = nmzp_decode(raw, len, err, sizeof err);
+            CHECK(v == NULL && strstr(err, bad[k].why));
+            if (v || !strstr(err, bad[k].why)) fprintf(stderr, "  %s: %s\n", bad[k].hex, err);
+            nmzp_val_free(v);
+        }
+    }
+    { /* depth: 31 arrays in the top map are fine, 32 are too deep */
+        unsigned char deep[40];
+        int k;
+        deep[0] = 0x81;
+        deep[1] = 0xa1;
+        deep[2] = 'a';
+        for (k = 0; k < 31; k++) deep[3 + k] = 0x91;
+        deep[3 + 31] = 0x01;
+        v = nmzp_decode(deep, 35, err, sizeof err);
+        CHECK(v != NULL);
+        nmzp_val_free(v);
+        for (k = 0; k < 32; k++) deep[3 + k] = 0x91;
+        deep[3 + 32] = 0x01;
+        v = nmzp_decode(deep, 36, err, sizeof err);
+        CHECK(v == NULL && strstr(err, "deeper"));
+        nmzp_val_free(v);
+    }
+    { /* a large map: its keys are checked for duplicates by hashing */
+        nmzp_buf b;
+        nmzp_mw w;
+        int k;
+        nmzp_buf_init(&b);
+        nmzp_mw_init(&w, &b);
+        nmzp_mw_map(&w);
+        for (k = 0; k < 5000; k++) {
+            char key[16];
+            snprintf(key, sizeof key, "k%04d", k);
+            nmzp_mw_kint(&w, key, k);
+        }
+        nmzp_mw_end_map(&w);
+        v = nmzp_decode(b.data, b.len, err, sizeof err);
+        CHECK(v && v->n == 5000 && nmzp_get_int(v, "k4999", &i) && i == 4999);
+        nmzp_val_free(v);
+        /* the last key made equal to the first: "k4999" -> "k0000" */
+        {
+            char *last = b.data + b.len - 3 - 5; /* the key's bytes, before its value cd 13 87 */
+            CHECK(!memcmp(last, "k4999", 5));
+            memcpy(last, "k0000", 5);
+            v = nmzp_decode(b.data, b.len, err, sizeof err);
+            CHECK(v == NULL && strstr(err, "twice"));
+            nmzp_val_free(v);
+        }
+        nmzp_buf_free(&b);
+    }
+    { /* the value limit: a map, its key, an array of 262144 ints = 262147 values */
+        size_t n2 = 8 + NMZP_MAX_VALUES;
+        unsigned char *big = calloc(n2, 1);
+        if (big) {
+            memcpy(big, "\x81\xa1" "a" "\xdd\x00\x04\x00\x00", 8);
+            v = nmzp_decode(big, n2, err, sizeof err);
+            CHECK(v == NULL && strstr(err, "262144"));
+            nmzp_val_free(v);
+            free(big);
+        }
+    }
+}
+
+static void test_utf8(void) {
+    CHECK(nmzp_utf8_valid("", 0) && nmzp_utf8_valid("a\0b", 3));
+    CHECK(nmzp_utf8_valid("\xc3\xa9\xe2\x82\xac\xf0\x9f\x98\x80", 9));
+    CHECK(!nmzp_utf8_valid("\xc0\x80", 2) && !nmzp_utf8_valid("\xe0\x80\x80", 3) && !nmzp_utf8_valid("\xed\xa0\x80", 3));
+    CHECK(!nmzp_utf8_valid("\xf4\x90\x80\x80", 4) && !nmzp_utf8_valid("\x80", 1) && !nmzp_utf8_valid("\xc3", 1));
+    CHECK(!nmzp_utf8_valid("\xff", 1) && !nmzp_utf8_valid("\xe2\x82", 2));
+}
+
+static void test_frames(void) {
+    unsigned char h[12], two[40];
+    nmzp_frame_head fh;
+    const unsigned char *payload;
+    size_t used;
+    int code = 0, major = 0, minor = 0;
+    nmzp_buf b;
+    nmzp_head_encode(h, NMZP_REQUEST, NMZP_MORE, 0x01020304u, 5);
+    CHECK(!memcmp(h, "\x05\x00\x00\x00\x10\x01\x00\x00\x04\x03\x02\x01", 12));
+    nmzp_head_decode(h, &fh);
+    CHECK(fh.length == 5 && fh.type == NMZP_REQUEST && fh.flags == NMZP_MORE && fh.id == 0x01020304u && !fh.reserved);
+    CHECK(nmzp_head_check(&fh, 65536) == 0 && nmzp_head_check(&fh, 4) == NMZP_E_FRAME_TOO_LARGE);
+    fh.flags = 0x80;
+    CHECK(nmzp_head_check(&fh, 65536) == NMZP_E_PROTOCOL);
+    fh.flags = 0;
+    fh.reserved = 1;
+    CHECK(nmzp_head_check(&fh, 65536) == NMZP_E_PROTOCOL);
+    fh.reserved = 0;
+    fh.type = 0x04;
+    CHECK(nmzp_head_check(&fh, 65536) == NMZP_E_UNKNOWN_FRAME);
+    /* two frames back to back, then a partial one */
+    nmzp_buf_init(&b);
+    nmzp_frame_put(&b, NMZP_PING, 0, 0, "ab", 2);
+    nmzp_frame_put(&b, NMZP_DATA, NMZP_MORE, 7, "xyz", 3);
+    CHECK(b.len == 29);
+    memcpy(two, b.data, b.len);
+    CHECK(nmzp_frame_next(two, b.len, 65536, &fh, &payload, &used, &code) == 1 && used == 14 && fh.type == NMZP_PING &&
+          !memcmp(payload, "ab", 2));
+    CHECK(nmzp_frame_next(two + 14, b.len - 14, 65536, &fh, &payload, &used, &code) == 1 && fh.id == 7 && fh.length == 3);
+    CHECK(nmzp_frame_next(two, 11, 65536, &fh, &payload, &used, &code) == 0);
+    CHECK(nmzp_frame_next(two + 14, 14, 65536, &fh, &payload, &used, &code) == 0); /* 14 of the 15 bytes */
+    CHECK(nmzp_frame_next("GET / HTTP/1.1\r\n", 16, 65536, &fh, &payload, &used, &code) == -1 &&
+          code == NMZP_E_FRAME_TOO_LARGE);
+    nmzp_buf_free(&b);
+    /* the handshake prefix */
+    nmzp_prefix_put(h, 2, 1);
+    CHECK(!memcmp(h, "NMZP\r\n\x1a\n\x02\x00\x01\x00", 12));
+    CHECK(nmzp_prefix_get(h, 12, &major, &minor) == 0 && major == 2 && minor == 1);
+    CHECK(nmzp_prefix_get(h, 11, &major, &minor) == -1);
+    h[3] = 'Q';
+    CHECK(nmzp_prefix_get(h, 12, &major, &minor) == -1);
+    /* errors */
+    CHECK(!strcmp(nmzp_error_name(203), "invalid_argument") && nmzp_error_code("queue_full") == 402);
+    CHECK(nmzp_error_name(999) == NULL && nmzp_error_code("nope") == 0);
+    {
+        nmzp_val *v;
+        long long c = 0;
+        nmzp_buf_init(&b);
+        CHECK(nmzp_error_payload(&b, NMZP_E_NOT_FOUND, "no model named 'x'", NULL, 0) == 0);
+        v = nmzp_decode(b.data, b.len, NULL, 0);
+        CHECK(v && nmzp_get_int(v, "code", &c) && c == 400 && !strcmp(nmzp_get_str(v, "name"), "not_found") &&
+              !strcmp(nmzp_get_str(v, "message"), "no model named 'x'"));
+        nmzp_val_free(v);
+        nmzp_buf_free(&b);
+    }
+}
+
+static void test_hmac_auth(void) {
+    unsigned char mac[32], key[32], id[8], ns[32], nc[32], pc[32], ps[32];
+    char hex[65];
+    int i;
+    /* RFC 4231 test case 2 */
+    nmzp_hmac_sha256("Jefe", 4, "what do ya want for nothing?", 28, mac);
+    nmzp_hex(mac, 32, hex);
+    CHECK(!strcmp(hex, "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843"));
+    { /* case 6: a key longer than the block */
+        unsigned char k[131];
+        memset(k, 0xaa, sizeof k);
+        nmzp_hmac_sha256(k, sizeof k, "Test Using Larger Than Block-Size Key - Hash Key First", 54, mac);
+        nmzp_hex(mac, 32, hex);
+        CHECK(!strcmp(hex, "60e431591ee0b67f0d8a26aacbf5b77f8e0bc6213728c5140546040f0ee37f54"));
+    }
+    { /* incremental equals one-shot */
+        nmzp_hmac h;
+        unsigned char m2[32];
+        nmzp_hmac_init(&h, "Jefe", 4);
+        nmzp_hmac_update(&h, "what do ya want ", 16);
+        nmzp_hmac_update(&h, "for nothing?", 12);
+        nmzp_hmac_final(&h, m2);
+        nmzp_hmac_sha256("Jefe", 4, "what do ya want for nothing?", 28, mac);
+        CHECK(!memcmp(mac, m2, 32));
+    }
+    /* the derivation: K is what the tokens file keeps (sha256:...) */
+    nmzp_auth_key("abc", 3, key);
+    nmzp_hex(key, 32, hex);
+    CHECK(!strcmp(hex, "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"));
+    nmzp_auth_key_id(key, id);
+    nmzp_hmac_sha256(key, 32, "neuromz key id", 14, mac);
+    CHECK(!memcmp(id, mac, 8));
+    for (i = 0; i < 32; i++) ns[i] = (unsigned char)i, nc[i] = (unsigned char)(255 - i);
+    nmzp_auth_proof(key, 0, ns, nc, pc);
+    nmzp_auth_proof(key, 1, ns, nc, ps);
+    CHECK(memcmp(pc, ps, 32) != 0);
+    {
+        unsigned char msg[20 + 64];
+        memcpy(msg, "neuromz client proof", 20);
+        memcpy(msg + 20, ns, 32);
+        memcpy(msg + 52, nc, 32);
+        nmzp_hmac_sha256(key, 32, msg, sizeof msg, mac);
+        CHECK(!memcmp(mac, pc, 32));
+    }
+    nc[0] ^= 1; /* another nonce, another proof */
+    nmzp_auth_proof(key, 0, ns, nc, mac);
+    CHECK(memcmp(mac, pc, 32) != 0);
 }
 
 static void test_sha256(void) {
@@ -251,29 +449,24 @@ static void test_names_time_hosts(void) {
     CHECK(!strcmp(t, "2000-02-29T00:00:00Z"));
     nmzp_time_rfc3339(1764252309, t);
     CHECK(!strcmp(t, "2025-11-27T14:05:09Z"));
-    CHECK(nmzp_parse_hostport("http://10.0.0.2:9000", host, sizeof host, &port) == 0 && !strcmp(host, "10.0.0.2") &&
-          port == 9000);
+    CHECK(nmzp_parse_hostport("10.0.0.2:9000", host, sizeof host, &port) == 0 && !strcmp(host, "10.0.0.2") && port == 9000);
+    CHECK(nmzp_parse_hostport("http://10.0.0.2:9000", host, sizeof host, &port) != 0); /* protocol 1's URLs */
     CHECK(nmzp_parse_hostport("gpu-box", host, sizeof host, &port) == 0 && port == NMZP_DEFAULT_PORT);
     CHECK(nmzp_parse_hostport("[::1]:81", host, sizeof host, &port) == 0 && !strcmp(host, "::1") && port == 81);
     CHECK(nmzp_parse_hostport("h:0", host, sizeof host, &port) != 0 && nmzp_parse_hostport("h:x", host, sizeof host, &port) != 0);
     CHECK(nmzp_parse_hostport("https://h", host, sizeof host, &port) != 0);
-    {
-        nmzp_buf b;
-        char d[64];
-        nmzp_buf_init(&b);
-        nmzp_url_encode(&b, "a b/é");
-        CHECK(!strcmp(b.data, "a%20b%2F%C3%A9"));
-        CHECK(nmzp_url_decode(b.data, b.len, d, sizeof d, 0) > 0 && !strcmp(d, "a b/é"));
-        nmzp_buf_free(&b);
-    }
+    CHECK(nmzp_parse_hostport("::1", host, sizeof host, &port) != 0 && nmzp_parse_hostport("h:1:2", host, sizeof host, &port) != 0);
 }
 
+
 int main(void) {
-    test_json();
-    test_http();
-    test_chunked();
-    test_sse();
+    test_mpack_write();
+    test_mpack_read();
+    test_utf8();
+    test_frames();
+    test_hmac_auth();
     test_sha256();
+    test_json();
     test_names_time_hosts();
     printf("%d checks, %d failed\n", g_checks, g_fails);
     return g_fails ? 1 : 0;
