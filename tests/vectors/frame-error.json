@@ -1,0 +1,1 @@
+{"name": "frame-error", "group": "frame", "size": 66, "note": "ERROR ending request 3", "type": 18, "type_name": "ERROR", "flags": 0, "id": 3, "length": 54, "payload": {"map": [["code", {"int": "400"}], ["name", "not_found"], ["message", "no model named 'nope'"]]}}

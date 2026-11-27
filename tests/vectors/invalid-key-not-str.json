@@ -1,0 +1,1 @@
+{"name": "invalid-key-not-str", "group": "value-invalid", "size": 3, "rule": "a map key that is an int"}

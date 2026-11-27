@@ -1,0 +1,1 @@
+{"name": "frame-truncated", "group": "frame-invalid", "size": 15, "note": "10 bytes announced, 3 present: not a frame yet", "max_frame": 65536, "expect": "incomplete"}

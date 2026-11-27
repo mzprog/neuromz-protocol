@@ -1,0 +1,1 @@
+{"name": "payload-not-map-array", "group": "payload-invalid", "size": 1, "rule": "a payload that is an array"}

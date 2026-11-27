@@ -1,0 +1,1 @@
+{"name": "invalid-truncated-str", "group": "value-invalid", "size": 3, "rule": "a fixstr of 5 with 2 bytes"}

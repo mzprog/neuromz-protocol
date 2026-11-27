@@ -1,0 +1,1 @@
+{"name": "hello-bad-magic", "group": "frame-invalid", "size": 34, "note": "a well-formed HELLO frame whose payload does not start with the magic", "max_frame": 65536, "expect": "bad_magic"}

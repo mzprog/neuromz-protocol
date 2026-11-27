@@ -1,0 +1,1 @@
+{"name": "frame-request-upload", "group": "frame", "size": 58, "note": "REQUEST id 2 with MORE: an upload follows", "type": 16, "type_name": "REQUEST", "flags": 1, "id": 2, "length": 46, "payload": {"map": [["op", "datasets.upload"], ["name", "xor"], ["format", "csv"], ["size", {"int": "24"}]]}}

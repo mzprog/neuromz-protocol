@@ -1,0 +1,1 @@
+{"name": "float-1e300", "group": "value", "size": 9, "canonical": true, "note": "1e300", "value": {"float": 1.0000000000000001e+300, "bits": "7e37e43c8800759c"}}

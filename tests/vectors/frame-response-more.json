@@ -1,0 +1,1 @@
+{"name": "frame-response-more", "group": "frame", "size": 54, "note": "RESPONSE with MORE: a download's head", "type": 17, "type_name": "RESPONSE", "flags": 1, "id": 5, "length": 42, "payload": {"map": [["name", "xor"], ["version", {"int": "3"}], ["size", {"int": "1404"}], ["storage", "server"]]}}

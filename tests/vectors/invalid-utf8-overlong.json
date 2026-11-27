@@ -1,0 +1,1 @@
+{"name": "invalid-utf8-overlong", "group": "value-invalid", "size": 3, "rule": "an overlong encoding of U+0000"}

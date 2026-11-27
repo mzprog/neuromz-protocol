@@ -1,0 +1,1 @@
+{"name": "frame-bad-flags", "group": "frame-invalid", "size": 12, "note": "flag bit 1 is not defined", "max_frame": 65536, "expect": "protocol_error"}

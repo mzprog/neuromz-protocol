@@ -1,0 +1,1 @@
+{"name": "frame-error-connection", "group": "frame", "size": 68, "note": "ERROR with id 0: about the connection, which closes", "type": 18, "type_name": "ERROR", "flags": 0, "id": 0, "length": 56, "payload": {"map": [["code", {"int": "108"}], ["name", "unauthorized"], ["message", "the token is not valid"]]}}

@@ -1,0 +1,1 @@
+{"name": "invalid-utf8-bad-byte", "group": "value-invalid", "size": 3, "rule": "a str that is not UTF-8"}

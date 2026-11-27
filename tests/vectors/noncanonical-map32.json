@@ -1,0 +1,1 @@
+{"name": "noncanonical-map32", "group": "value", "size": 8, "canonical": false, "canonical_hex": "81a16101", "note": "{a: 1} as map 32", "value": {"map": [["a", {"int": "1"}]]}}

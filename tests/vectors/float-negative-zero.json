@@ -1,0 +1,1 @@
+{"name": "float-negative-zero", "group": "value", "size": 9, "canonical": true, "note": "-0.0", "value": {"float": -0, "bits": "8000000000000000"}}

@@ -1,0 +1,1 @@
+{"name": "noncanonical-array32", "group": "value", "size": 7, "canonical": false, "canonical_hex": "920102", "note": "[1, 2] as array 32", "value": [{"int": "1"}, {"int": "2"}]}

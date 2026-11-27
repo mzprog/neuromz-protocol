@@ -1,0 +1,1 @@
+{"name": "invalid-utf8-continuation", "group": "value-invalid", "size": 2, "rule": "a stray continuation byte"}

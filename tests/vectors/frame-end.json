@@ -1,0 +1,1 @@
+{"name": "frame-end", "group": "frame", "size": 60, "note": "END of request 2's stream", "type": 20, "type_name": "END", "flags": 0, "id": 2, "length": 48, "payload": {"map": [["size", {"int": "24"}], ["sha256", {"bin": "97bd866624d0de9e95c4fabddbabc19b316c7a96bd7222173a92463c9c62c4a6"}]]}}

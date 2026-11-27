@@ -1,0 +1,1 @@
+{"name": "noncanonical-bin32", "group": "value", "size": 7, "canonical": false, "canonical_hex": "c4020102", "note": "a 2-byte bin as bin 32", "value": {"bin": "0102"}}

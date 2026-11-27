@@ -1,0 +1,1 @@
+{"name": "invalid-str32-bomb", "group": "value-invalid", "size": 6, "rule": "a str of 4294967295 bytes claimed"}

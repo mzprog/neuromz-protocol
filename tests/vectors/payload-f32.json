@@ -1,0 +1,1 @@
+{"name": "payload-f32", "group": "payload", "size": 36, "canonical": true, "note": "a bin (f32): 1.0, -2.5, 0.1, 3.4028235e38 as little-endian float32", "value": {"map": [["outputs", {"bin": "0000803f000020c0cdcccc3dffff7f7f"}], ["shape", [{"int": "2"}, {"int": "2"}]]]}}
