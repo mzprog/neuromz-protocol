@@ -189,8 +189,12 @@ void nmzp_time_rfc3339(long long t, char out[32]) {
     unsigned d = doy - (153 * mp + 2) / 5 + 1;
     unsigned m = mp < 10 ? mp + 3 : mp - 9;
     if (m <= 2) y++;
-    snprintf(out, 32, "%04lld-%02u-%02uT%02u:%02u:%02uZ", y, m, d, (unsigned)(secs / 3600), (unsigned)(secs % 3600 / 60),
-             (unsigned)(secs % 60));
+    { /* room for any value (GCC cannot see that the fields are small), then the 20 characters */
+        char b[96];
+        snprintf(b, sizeof b, "%04lld-%02u-%02uT%02u:%02u:%02uZ", y, m, d, (unsigned)(secs / 3600),
+                 (unsigned)(secs % 3600 / 60), (unsigned)(secs % 60));
+        snprintf(out, 32, "%.31s", b);
+    }
 }
 
 long long nmzp_now(void) { return (long long)time(NULL); }
