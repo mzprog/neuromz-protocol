@@ -1,0 +1,1 @@
+{"name": "frame-ping", "group": "frame", "size": 16, "note": "PING with 4 bytes", "type": 32, "type_name": "PING", "flags": 0, "id": 0, "length": 4, "payload_hex": "61626364"}

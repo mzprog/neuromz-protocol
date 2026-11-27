@@ -1,16 +1,16 @@
-# neuromz-protocol — the NeuroMZ protocol (PROTOCOL.md, openapi.yaml), its
-# wire format in C (the nmzp library) and the conformance suite.
+# neuromz-protocol — the NeuroMZ protocol 2 (PROTOCOL.md), its wire format in
+# C (the nmzp library), the shared test vectors and the conformance suite.
 #
 #   cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 #   cmake --build build                  libnmzp, nmz-conformance, the tests
-#   ctest --test-dir build               unit tests and a short fuzz run
-#   build/nmz-conformance --url http://127.0.0.1:8470 --token TOKEN
+#   ctest --test-dir build               unit tests, the vectors, a short fuzz run
+#   build/nmz-conformance --host 127.0.0.1:8470 --token TOKEN
 #
 # Used by neuromz-server and neuromz-cli through FetchContent (or a local
 # checkout): they link nmzp::nmzp; the tests and the conformance program are
 # built only when this is the top project or NMZP_BUILD_CONFORMANCE is on.
 cmake_minimum_required(VERSION 3.21)
-project(neuromz_protocol VERSION 1.0.0 DESCRIPTION "The NeuroMZ protocol: spec, C wire library, conformance suite"
+project(neuromz_protocol VERSION 2.0.0 DESCRIPTION "The NeuroMZ protocol 2: spec, C wire library, test vectors, conformance suite"
         LANGUAGES C)
 
 option(NMZP_WERROR "Treat compiler warnings as errors" ON)
@@ -39,7 +39,7 @@ if(NMZP_SANITIZE)
   target_link_options(nmzp_warnings INTERFACE -fsanitize=address,undefined)
 endif()
 
-add_library(nmzp STATIC src/json.c src/http.c src/sock.c src/client.c src/util.c)
+add_library(nmzp STATIC src/buf.c src/mpack.c src/frame.c src/sock.c src/client.c src/util.c src/json.c)
 add_library(nmzp::nmzp ALIAS nmzp)
 target_include_directories(nmzp PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 set_target_properties(nmzp PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED ON C_EXTENSIONS OFF POSITION_INDEPENDENT_CODE ON)
@@ -60,10 +60,16 @@ if(NMZP_BUILD_TESTS)
   enable_testing()
   add_executable(test_wire tests/test_wire.c)
   add_executable(fuzz_wire tests/fuzz.c)
-  foreach(t test_wire fuzz_wire)
+  add_executable(nmz-vectors tests/vectors.c)
+  foreach(t test_wire fuzz_wire nmz-vectors)
     set_target_properties(${t} PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED ON C_EXTENSIONS OFF)
     target_link_libraries(${t} PRIVATE nmzp nmzp_warnings)
   endforeach()
   add_test(NAME wire COMMAND test_wire)
+  # the committed vectors pass, and this implementation writes exactly them
+  add_test(NAME vectors COMMAND nmz-vectors check ${CMAKE_CURRENT_SOURCE_DIR}/tests/vectors)
+  add_test(NAME vectors-written COMMAND ${CMAKE_COMMAND} -DVECTORS=$<TARGET_FILE:nmz-vectors>
+           -DSRC=${CMAKE_CURRENT_SOURCE_DIR}/tests/vectors -DOUT=${CMAKE_CURRENT_BINARY_DIR}/vectors-fresh
+           -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/vectors_same.cmake)
   add_test(NAME fuzz COMMAND fuzz_wire 200000 12345)
 endif()

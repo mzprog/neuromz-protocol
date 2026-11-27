@@ -1,0 +1,1 @@
+{"name": "payload-request-create", "group": "payload", "size": 51, "canonical": true, "note": "models.create, the program's arguments", "value": {"map": [["op", "models.create"], ["name", "xor"], ["args", ["2", "4", "1"]], ["save", "server"]]}}

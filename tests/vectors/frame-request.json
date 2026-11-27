@@ -1,0 +1,1 @@
+{"name": "frame-request", "group": "frame", "size": 23, "note": "REQUEST id 1: health", "type": 16, "type_name": "REQUEST", "flags": 0, "id": 1, "length": 11, "payload": {"map": [["op", "health"]]}}

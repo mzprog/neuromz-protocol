@@ -1,0 +1,1 @@
+{"name": "payload-error", "group": "payload", "size": 78, "canonical": true, "note": "an ERROR payload", "value": {"map": [["code", {"int": "203"}], ["name", "invalid_argument"], ["message", "--lr needs a positive number, got '-1'"]]}}

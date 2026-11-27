@@ -1,0 +1,1 @@
+{"name": "frame-too-large", "group": "frame-invalid", "size": 12, "note": "65537 bytes announced, over a limit of 65536: refused from the header alone", "max_frame": 65536, "expect": "frame_too_large"}

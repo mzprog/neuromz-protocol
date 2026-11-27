@@ -1,0 +1,1 @@
+{"name": "invalid-truncated-uint16", "group": "value-invalid", "size": 2, "rule": "uint 16 with one byte"}

@@ -1,0 +1,1 @@
+{"name": "noncanonical-float-nan", "group": "value", "size": 9, "canonical": false, "canonical_hex": "cb7ff8000000000000", "note": "a NaN: readers accept it (writers send nil for a number that is not finite)", "value": {"float": null, "bits": "7ff8000000000000"}}

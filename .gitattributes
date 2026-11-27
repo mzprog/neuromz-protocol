@@ -4,3 +4,5 @@
 * text=auto eol=lf
 *.nmz binary
 *.pdf binary
+# the test vectors are bytes: never converted
+tests/vectors/*.bin binary

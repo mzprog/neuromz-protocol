@@ -1,0 +1,1 @@
+{"name": "invalid-utf8-surrogate", "group": "value-invalid", "size": 4, "rule": "U+D800, a surrogate"}

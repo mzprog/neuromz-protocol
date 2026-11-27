@@ -1,0 +1,1 @@
+{"name": "invalid-key-nul", "group": "value-invalid", "size": 5, "rule": "a key with U+0000"}

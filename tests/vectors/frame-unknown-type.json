@@ -1,0 +1,1 @@
+{"name": "frame-unknown-type", "group": "frame-invalid", "size": 12, "note": "type 0x7f is not defined", "max_frame": 65536, "expect": "unknown_frame"}

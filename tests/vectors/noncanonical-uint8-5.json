@@ -1,0 +1,1 @@
+{"name": "noncanonical-uint8-5", "group": "value", "size": 2, "canonical": false, "canonical_hex": "05", "note": "5 as uint 8 (canonical: positive fixint)", "value": {"int": "5"}}

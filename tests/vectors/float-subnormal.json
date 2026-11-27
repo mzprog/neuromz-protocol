@@ -1,0 +1,1 @@
+{"name": "float-subnormal", "group": "value", "size": 9, "canonical": true, "note": "the smallest subnormal", "value": {"float": 4.9406564584124654e-324, "bits": "0000000000000001"}}

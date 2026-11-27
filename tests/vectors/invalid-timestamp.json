@@ -1,0 +1,1 @@
+{"name": "invalid-timestamp", "group": "value-invalid", "size": 6, "rule": "MessagePack's timestamp (an extension)"}

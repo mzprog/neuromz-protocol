@@ -1,0 +1,1 @@
+{"name": "payload-end", "group": "payload", "size": 48, "canonical": true, "note": "an END: the size and SHA-256 of 0,0,0\\n0,1,1\\n1,0,1\\n1,1,0\\n", "value": {"map": [["size", {"int": "24"}], ["sha256", {"bin": "97bd866624d0de9e95c4fabddbabc19b316c7a96bd7222173a92463c9c62c4a6"}]]}}
