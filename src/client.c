@@ -59,10 +59,8 @@ static int broken(nmzp_client *c, nmzp_error *e, const char *msg) {
 }
 
 int nmzp_client_send(nmzp_client *c, int type, int flags, uint32_t id, const void *p, size_t n) {
-    unsigned char h[NMZP_FRAME_HEADER];
     if (c->sock == NMZP_NO_SOCKET) return -1;
-    nmzp_head_encode(h, type, flags, id, (uint32_t)n);
-    if (nmzp_send_all(c->sock, h, sizeof h) || (n && nmzp_send_all(c->sock, p, n))) {
+    if (nmzp_frame_send(c->sock, type, flags, id, p, n)) {
         snprintf(c->err, sizeof c->err, "sending to %s:%d failed: the connection is gone", c->host, c->port);
         return -1;
     }

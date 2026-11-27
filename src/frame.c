@@ -68,6 +68,19 @@ int nmzp_frame_put(nmzp_buf *b, int type, int flags, uint32_t id, const void *pa
     return n ? nmzp_buf_add(b, payload, n) : 0;
 }
 
+int nmzp_frame_send(nmzp_socket s, int type, int flags, uint32_t id, const void *payload, size_t n) {
+    unsigned char small[NMZP_FRAME_HEADER + 4096];
+    if (n > 0xffffffffu) return -1;
+    if (n <= sizeof small - NMZP_FRAME_HEADER) { /* one write: header and payload in one segment */
+        nmzp_head_encode(small, type, flags, id, (uint32_t)n);
+        if (n) memcpy(small + NMZP_FRAME_HEADER, payload, n);
+        return nmzp_send_all(s, small, NMZP_FRAME_HEADER + n);
+    }
+    nmzp_head_encode(small, type, flags, id, (uint32_t)n);
+    if (nmzp_send_all(s, small, NMZP_FRAME_HEADER)) return -1;
+    return nmzp_send_all(s, payload, n);
+}
+
 int nmzp_frame_next(const void *buf, size_t n, uint32_t max_payload, nmzp_frame_head *h, const unsigned char **payload,
                     size_t *consumed, int *code) {
     const unsigned char *p = (const unsigned char *)buf;

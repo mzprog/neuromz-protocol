@@ -184,6 +184,10 @@ int nmzp_head_check(const nmzp_frame_head *h, uint32_t max_payload);
 const char *nmzp_frame_name(int type); /* "REQUEST", ...; NULL if unknown */
 /* append a whole frame to b: 0 = ok */
 int nmzp_frame_put(nmzp_buf *b, int type, int flags, uint32_t id, const void *payload, size_t n);
+/* a whole frame to a socket (small frames in one write): 0 = ok (declared
+ * here, nmzp_socket below) */
+typedef intptr_t nmzp_socket;
+int nmzp_frame_send(nmzp_socket s, int type, int flags, uint32_t id, const void *payload, size_t n);
 /* The next frame at the start of buf[0..n): 1 = a frame (*h, *payload,
  * *consumed = its whole size), 0 = incomplete, -1 = a bad header (*code). */
 int nmzp_frame_next(const void *buf, size_t n, uint32_t max_payload, nmzp_frame_head *h, const unsigned char **payload,
@@ -260,7 +264,7 @@ void nmzp_auth_proof(const unsigned char key[32], int server, const unsigned cha
 
 /* ------------------------------------------------------------ sockets */
 
-typedef intptr_t nmzp_socket;
+/* nmzp_socket: an intptr_t (declared with the frames above) */
 #define NMZP_NO_SOCKET ((nmzp_socket)-1)
 
 int nmzp_net_init(void); /* once per process (Winsock); 0 = ok */
