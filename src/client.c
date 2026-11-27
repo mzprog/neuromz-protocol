@@ -191,8 +191,8 @@ int nmzp_client_connect(nmzp_client *c, nmzp_error *e) {
     }
     if (f.h.type == NMZP_ERROR && f.h.id == 0) {
         read_error(&f.payload, e);
-        snprintf(msg, sizeof msg, "%s:%d refused the connection: %s: %s", c->host, c->port, e->name, e->message);
-        snprintf(c->err, sizeof c->err, "%s", msg);
+        snprintf(msg, sizeof msg, "%.255s:%d refused the connection: %.39s: %.380s", c->host, c->port, e->name, e->message);
+        snprintf(c->err, sizeof c->err, "%.599s", msg);
         nmzp_frame_free(&f);
         nmzp_client_close(c);
         return -1;
@@ -279,8 +279,8 @@ int nmzp_client_connect(nmzp_client *c, nmzp_error *e) {
     }
     if (f.h.type == NMZP_ERROR) {
         read_error(&f.payload, e);
-        snprintf(msg, sizeof msg, "%s:%d: %s: %s", c->host, c->port, e->name, e->message);
-        snprintf(c->err, sizeof c->err, "%s", msg);
+        snprintf(msg, sizeof msg, "%.255s:%d: %.39s: %.380s", c->host, c->port, e->name, e->message);
+        snprintf(c->err, sizeof c->err, "%.599s", msg);
         nmzp_val_free(g);
         nmzp_buf_free(&hello);
         nmzp_frame_free(&f);
@@ -353,7 +353,7 @@ static int next_of(nmzp_client *c, uint32_t id, nmzp_frame *f, int timeout_ms, n
         if (r < 0) return broken(c, e, c->err);
         if (f->h.type == NMZP_ERROR && f->h.id == 0) { /* about the connection: it closes */
             read_error(&f->payload, e);
-            snprintf(c->err, sizeof c->err, "%s: %s", e->name, e->message);
+            snprintf(c->err, sizeof c->err, "%.39s: %.550s", e->name, e->message);
             nmzp_client_close(c);
             return 0;
         }
