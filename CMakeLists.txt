@@ -1,0 +1,69 @@
+# neuromz-protocol — the NeuroMZ protocol (PROTOCOL.md, openapi.yaml), its
+# wire format in C (the nmzp library) and the conformance suite.
+#
+#   cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+#   cmake --build build                  libnmzp, nmz-conformance, the tests
+#   ctest --test-dir build               unit tests and a short fuzz run
+#   build/nmz-conformance --url http://127.0.0.1:8470 --token TOKEN
+#
+# Used by neuromz-server and neuromz-cli through FetchContent (or a local
+# checkout): they link nmzp::nmzp; the tests and the conformance program are
+# built only when this is the top project or NMZP_BUILD_CONFORMANCE is on.
+cmake_minimum_required(VERSION 3.21)
+project(neuromz_protocol VERSION 1.0.0 DESCRIPTION "The NeuroMZ protocol: spec, C wire library, conformance suite"
+        LANGUAGES C)
+
+option(NMZP_WERROR "Treat compiler warnings as errors" ON)
+option(NMZP_SANITIZE "AddressSanitizer + UndefinedBehaviorSanitizer (GCC/Clang)" OFF)
+option(NMZP_BUILD_TESTS "Build the unit and fuzz tests" ${PROJECT_IS_TOP_LEVEL})
+option(NMZP_BUILD_CONFORMANCE "Build nmz-conformance" ${PROJECT_IS_TOP_LEVEL})
+
+if(PROJECT_IS_TOP_LEVEL AND NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
+
+add_library(nmzp_warnings INTERFACE)
+if(MSVC)
+  target_compile_options(nmzp_warnings INTERFACE /W4 /wd4244 /wd4267 /utf-8 $<$<BOOL:${NMZP_WERROR}>:/WX>)
+  target_compile_definitions(nmzp_warnings INTERFACE _CRT_SECURE_NO_WARNINGS)
+else()
+  target_compile_options(nmzp_warnings INTERFACE -Wall -Wextra -pedantic -Wshadow -Wstrict-prototypes
+                                                 -Wmissing-prototypes -Wvla $<$<BOOL:${NMZP_WERROR}>:-Werror>)
+endif()
+if(NMZP_SANITIZE)
+  if(MSVC)
+    message(FATAL_ERROR "NMZP_SANITIZE is for GCC/Clang")
+  endif()
+  target_compile_options(nmzp_warnings INTERFACE -fsanitize=address,undefined -fno-omit-frame-pointer
+                                                 -fno-sanitize-recover=all)
+  target_link_options(nmzp_warnings INTERFACE -fsanitize=address,undefined)
+endif()
+
+add_library(nmzp STATIC src/json.c src/http.c src/sock.c src/client.c src/util.c)
+add_library(nmzp::nmzp ALIAS nmzp)
+target_include_directories(nmzp PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+set_target_properties(nmzp PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED ON C_EXTENSIONS OFF POSITION_INDEPENDENT_CODE ON)
+target_link_libraries(nmzp PRIVATE nmzp_warnings)
+if(WIN32)
+  target_link_libraries(nmzp PUBLIC ws2_32 bcrypt)
+else()
+  target_link_libraries(nmzp PUBLIC m)
+endif()
+
+if(NMZP_BUILD_CONFORMANCE)
+  add_executable(nmz-conformance conformance/conformance.c)
+  set_target_properties(nmz-conformance PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED ON C_EXTENSIONS OFF)
+  target_link_libraries(nmz-conformance PRIVATE nmzp nmzp_warnings)
+endif()
+
+if(NMZP_BUILD_TESTS)
+  enable_testing()
+  add_executable(test_wire tests/test_wire.c)
+  add_executable(fuzz_wire tests/fuzz.c)
+  foreach(t test_wire fuzz_wire)
+    set_target_properties(${t} PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED ON C_EXTENSIONS OFF)
+    target_link_libraries(${t} PRIVATE nmzp nmzp_warnings)
+  endforeach()
+  add_test(NAME wire COMMAND test_wire)
+  add_test(NAME fuzz COMMAND fuzz_wire 200000 12345)
+endif()
