@@ -377,7 +377,7 @@ static void f_map_n(nmzp_mw *w, long long n) {
     long long i;
     nmzp_mw_map(w);
     for (i = 0; i < n; i++) {
-        char k[16];
+        char k[32];
         snprintf(k, sizeof k, "k%02lld", i);
         nmzp_mw_kint(w, k, i);
     }

@@ -1371,7 +1371,7 @@ static void t_trace(void) {
     nmzp_error e;
     nmzp_buf lines;
     int st;
-    long long events = 0;
+    long long n_events = 0;
     req_begin(&r, "models.trace");
     nmzp_mw_kstr(&r.w, "name", nm("xor"));
     nmzp_mw_key(&r.w, "inputs");
@@ -1392,7 +1392,7 @@ static void t_trace(void) {
         return;
     }
     EXPECT(st == 0, "models.trace: %s", e.message);
-    EXPECT(nmzp_get_int(head, "events", &events) && events > 0, "the trace's head has no events");
+    EXPECT(nmzp_get_int(head, "events", &n_events) && n_events > 0, "the trace's head has no events");
     EXPECT(nmzp_get_str(head, "format") && !strcmp(nmzp_get_str(head, "format"), "jsonl"), "the format is not jsonl");
     {
         const char *p = lines.data;
@@ -1416,8 +1416,8 @@ static void t_trace(void) {
         }
         nmzp_val_free(head);
         nmzp_buf_free(&lines);
-        EXPECT(n == (int)events && fwd > 0 && bwd > 0, "%d lines (%d forward, %d backward), the head says %lld", n, fwd, bwd,
-               events);
+        EXPECT(n == (int)n_events && fwd > 0 && bwd > 0, "%d lines (%d forward, %d backward), the head says %lld", n, fwd, bwd,
+               n_events);
     }
 }
 
