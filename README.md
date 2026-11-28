@@ -2,8 +2,9 @@
 
 The network protocol of [NeuroMZ](https://github.com/mzprog/neuromz): how
 clients create models, upload data, train, follow the progress, run
-inference and fetch traces on a NeuroMZ server. **Protocol 2** is a binary
-protocol of its own over one TCP connection — in the family of MySQL's
+inference and fetch traces on a NeuroMZ server. The NeuroMZ protocol
+(protocol 1) is a binary protocol of its own over one TCP connection — in
+the family of MySQL's
 client/server protocol, SQL Server's TDS and Redis's RESP: length-prefixed
 frames, a MessagePack subset for structured payloads, raw float32 arrays,
 an HMAC-SHA256 challenge so the token never travels, several requests at
@@ -11,7 +12,7 @@ once, files in chunks with their SHA-256, and training progress pushed on
 the same connection. There is no HTTP.
 
 NeuroMZ is in active development, with no releases yet (this repository's
-version is `2.0.0-dev`; development happens on the `2.0.0-dev` branch).
+version is `1.0.0-dev`; development happens on the `1.0.0-dev` branch).
 
 | | |
 |---|---|
@@ -19,7 +20,7 @@ version is `2.0.0-dev`; development happens on the `2.0.0-dev` branch).
 | [`tests/vectors/`](tests/vectors/) | canonical bytes of every encoding, frame and handshake, with typed JSON descriptions: what another implementation tests against |
 | [`conformance/`](conformance/conformance.c) | `nmz-conformance`: checks a live server against the protocol |
 | [`include/nmzp.h`](include/nmzp.h), [`src/`](src/) | `nmzp`, the protocol in C11 (frames, the payload codec, the handshake and HMAC-SHA256, a client, sockets, SHA-256), shared by the server and the program |
-| [`docs/DESIGN.md`](docs/DESIGN.md) | why it looks the way it does (P18–P37 and P42; P1–P17 were protocol 1; P38–P41 are the versions, branches and pins of every repository) |
+| [`docs/DESIGN.md`](docs/DESIGN.md) | why it looks the way it does (P18–P37, P42, P44 and P45; P1–P17 were the HTTP stage of early development; P38–P41 and P43 are shared by every repository) |
 
 The NeuroMZ repositories:
 [`neuromz`](https://github.com/mzprog/neuromz) (the library) ·
@@ -33,7 +34,7 @@ application will reach a server).
 ## The protocol in one page
 
 ```
-client                                    server            TCP port 8470
+client                                    server            TCP port 6769
   | <---- GREETING  magic, version 2.0, nonce Ns, auth, max_frame, capabilities
   | ----> HELLO     magic, version, key id, nonce Nc, proof = HMAC(SHA-256(token), label | Ns | Nc)
   | <---- WELCOME   user, permissions, the server's proof, max_inflight, idle_timeout
@@ -57,8 +58,8 @@ client                                    server            TCP port 8470
 * **Requests**: `server.*`, `models.*` (create, list, describe, delete,
   upload, download, predict, test, generate, trace), `datasets.*` (upload,
   register, list, describe, delete), `jobs.*` (train, list, status,
-  cancel, subscribe, model) — the operations of protocol 1 with the same
-  arguments; answers in any order; errors with stable numeric codes
+  cancel, subscribe, model) — everything the program's remote mode does;
+  answers in any order; errors with stable numeric codes
   (`203 invalid_argument`, `402 queue_full`, …).
 * **Streams**: uploads, downloads and traces in DATA frames closed by END
   `{"size", "sha256"}`; ABORT stops a stream or a subscription.
@@ -71,7 +72,7 @@ CMake ≥ 3.21 and a C11 compiler (GCC, Clang, MSVC); no other dependency.
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --config Release
 ctest --test-dir build -C Release --output-on-failure    # unit tests, the vectors, a fuzz run
-build/nmz-conformance --host 127.0.0.1:8470 --token TRAIN_OR_ADMIN_TOKEN [--read-token READ_TOKEN]
+build/nmz-conformance --host 127.0.0.1:6769 --token TRAIN_OR_ADMIN_TOKEN [--read-token READ_TOKEN]
 ```
 
 (`build/Release/nmz-conformance.exe` with Visual Studio.) The suite brings
@@ -92,9 +93,10 @@ refusal, frames, the prefix, HMAC-SHA256 with RFC 4231 cases, the proofs,
 UTF-8, SHA-256, JSON, names, addresses), `nmz-vectors check` (the 129
 vectors), `vectors-written` (this implementation writes exactly the
 committed vectors), and `fuzz_wire` (random and mutated frames and payloads;
-under ASan + UBSan in CI). CI also checks the vectors with an independent
-implementation, msgpack-python, and Python's `hmac`
-([`tests/xcheck_msgpack.py`](tests/xcheck_msgpack.py)).
+under ASan + UBSan on Linux). The vectors have also been checked against an
+independent implementation (msgpack-python and Python's `hmac`: every
+canonical vector agrees byte for byte); that check lives outside this
+repository, since no NeuroMZ repository depends on Python.
 
 ## The test vectors
 
@@ -117,7 +119,7 @@ directory of them.
 
 ```cmake
 include(FetchContent)
-# no releases yet: pin a full commit SHA of the 2.0.0-dev branch, as the server and the program do
+# no releases yet: pin a full commit SHA of the 1.0.0-dev branch, as the server and the program do
 FetchContent_Declare(neuromz_protocol GIT_REPOSITORY https://github.com/mzprog/neuromz-protocol.git GIT_TAG <commit SHA>)
 FetchContent_MakeAvailable(neuromz_protocol)
 target_link_libraries(app PRIVATE nmzp::nmzp)
@@ -130,7 +132,7 @@ nmzp_mw w;
 nmzp_val *out;
 nmzp_error e;
 nmzp_net_init();
-nmzp_client_init(&c, "gpu-box", 8470, token);
+nmzp_client_init(&c, "gpu-box", NMZP_DEFAULT_PORT, token);
 nmzp_buf_init(&req);
 nmzp_mw_init(&w, &req);
 nmzp_mw_map(&w);
@@ -147,14 +149,14 @@ and `nmzp_mw_*` read and write payloads; `nmzp_frame_next` splits frames
 
 ## Versions
 
-The wire protocol has its own number, 2 (PROTOCOL [§5.4](PROTOCOL.md#54-versions)
-and [§16](PROTOCOL.md#16-versions-and-extensions)): it changes only when
-the bytes on the wire change incompatibly, and then it is a new major,
-negotiated in the handshake; additions within protocol 2 come with
-capabilities. It is not this repository's version: every NeuroMZ
-repository is `2.0.0-dev` until the first release, which will be 2.0.0 of
-all of them ([DESIGN](docs/DESIGN.md) P38–P41). Protocol 1 (HTTP + JSON) is
-withdrawn. Changes: [`CHANGELOG.md`](CHANGELOG.md).
+This is protocol 1 (PROTOCOL [§5.4](PROTOCOL.md#54-versions) and
+[§16](PROTOCOL.md#16-versions-and-extensions)): its number changes only
+when the bytes on the wire change incompatibly, and then it is a new
+major, negotiated in the handshake; additions within protocol 1 come with
+capabilities. This repository versions the protocol: it is `1.0.0-dev`
+until its first release, 1.0.0, and its MAJOR is the protocol's number;
+the library, the program and the server move in lockstep at 2.x
+([DESIGN](docs/DESIGN.md) P39). Changes: [`CHANGELOG.md`](CHANGELOG.md).
 
 ## License
 

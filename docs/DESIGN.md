@@ -5,13 +5,15 @@ Why the NeuroMZ protocol looks the way it does. The protocol itself is
 in [neuromz/docs/DESIGN.md](https://github.com/mzprog/neuromz/blob/2.0.0-dev/docs/DESIGN.md),
 the reference server's in
 [neuromz-server/docs/DESIGN.md](https://github.com/mzprog/neuromz-server/blob/2.0.0-dev/docs/DESIGN.md).
-Decisions here are numbered P1, P2, …; P1–P17 are protocol 1 (HTTP, 2026,
-withdrawn), P18 onwards protocol 2; P38–P41 are the versions, branches and
-pins that every NeuroMZ repository shares.
+Decisions here are numbered P1, P2, …; P1–P17 are the HTTP stage of early
+development (withdrawn), P18 onwards the NeuroMZ protocol; P38–P41 and P43
+are shared by every NeuroMZ repository. The records P18–P42 call the HTTP
+stage "protocol 1" and the binary protocol "protocol 2"; since P44 the
+binary protocol is protocol 1.
 
 ## Goals
 
-The clients of protocol 2 are programs: the `neuromz` program's remote mode
+The clients of the protocol are programs: the `neuromz` program's remote mode
 (C, through `nmzp`), and a PHP client library (`neuromz-php`, planned: pure
 PHP first, a compiled extension with the same API later) through which a
 web application will reach the server — the browser talks to the web
@@ -20,7 +22,7 @@ hosts tables and runs training as jobs on the CPU or a GPU. Everything a
 local `neuromz` does with a model should be possible remotely, with the same
 words and the same messages.
 
-## Protocol 2
+## The protocol
 
 P18. **A binary protocol of its own over TCP; no HTTP at all** (the
     owner's decision for 2.0). A client keeps one connection and sends
@@ -38,7 +40,8 @@ P18. **A binary protocol of its own over TCP; no HTTP at all** (the
 P19. **Port 8470, unchanged.** A 2.0 server replaces a 1.0 server on the
     same machine, so existing firewall rules, SSH tunnels and client
     profiles keep working; a client of the wrong version fails at once
-    and says why (P23), so sharing the port costs nothing.
+    and says why (P23), so sharing the port costs nothing. *(Superseded by
+    P45: port 6769.)*
 
 P20. **Frames: a 12-byte little-endian header, then the payload.**
     `u32 length, u8 type, u8 flags, u16 reserved, u32 request id`. The
@@ -220,9 +223,9 @@ P37. **Every choice checked against pure PHP.** Little-endian `u32`
     (`neuromz-php`); PROTOCOL.md and the vectors are written to be enough
     to build it.
 
-## Versions, branches and pins
+## Versions, branches, pins and platforms
 
-The owner's decision of 2026-11-28, in the same words in the DESIGN.md of
+The owner's decisions of 2026-11-28, in the same words in the DESIGN.md of
 every NeuroMZ repository (neuromz, neuromz-cli, neuromz-protocol,
 neuromz-server).
 
@@ -236,67 +239,113 @@ P38. **No releases and no version tags until the owner says the project is
     No tag and no release is made in any repository until the owner says the
     project is ready.
 
-P39. **Versions move in lockstep by MAJOR; the wire protocol has its own
-    number.** All repositories share the same MAJOR version: the first
-    release will be 2.0.0 for every repository, including repositories
-    created later that never had a 1.x. MINOR and PATCH are each
-    repository's own: several repositories may move together while others
-    stay on older numbers. Any 2.x repository works with any other 2.x
-    repository: newer features are negotiated through the capabilities of
-    the protocol's handshake, and a missing feature gives a clear error,
-    never a crash. A breaking change means 3.0.0 for all repositories. The
-    wire protocol's version (the number in the handshake, now 2) is separate
-    from the repositories' versions and changes only when the bytes on the
-    wire change incompatibly. Until the release the version string of every
-    repository is `2.0.0-dev`: CMake's `project(VERSION)` holds numbers
-    only, so it says 2.0.0, and the full string is carried in a variable
-    next to it and in a macro in the code. `neuromz --version` names the
-    program, the library and the wire protocol (`neuromz-cli 2.0.0-dev
-    (library 2.0.0-dev, wire protocol 2)`), and `neuromz-server --version`
-    the same way.
+P39. **Versions move in lockstep by MAJOR; neuromz-protocol versions the
+    protocol.** neuromz, neuromz-cli and neuromz-server share the same MAJOR
+    version: their first release will be 2.0.0, and so will the first
+    release of every repository created later, even one that never had a
+    1.x. MINOR and PATCH are each repository's own: several repositories may
+    move together while others stay on older numbers. Any 2.x repository
+    works with any other 2.x repository: newer features are negotiated
+    through the capabilities of the protocol's handshake, and a missing
+    feature gives a clear error, never a crash. A breaking change, a new
+    protocol among them, means 3.0.0 for all three. neuromz-protocol is the
+    exception, because it versions the protocol itself: its first release
+    will be 1.0.0, for protocol 1, and its MAJOR is the protocol's number in
+    the handshake (1; the minor there stays 0), which changes only when the
+    bytes on the wire change incompatibly. The HTTP stage of early
+    development never counts as a protocol version. Until their first
+    release the version strings are `2.0.0-dev`, and `1.0.0-dev` for
+    neuromz-protocol: CMake's `project(VERSION)` holds numbers only, so it
+    says 2.0.0 (1.0.0), and the full string is carried in a variable next to
+    it and in a macro in the code. `neuromz --version` names the program,
+    the library and the protocol (`neuromz-cli 2.0.0-dev (library 2.0.0-dev,
+    protocol 1.0.0-dev)`), and `neuromz-server --version` the same way.
 
-P40. **Development happens on `2.0.0-dev`; `master` waits for the release.**
-    Every repository has the branch `2.0.0-dev`, created from `master` on
-    2026-11-28 and its default branch on GitHub; all development continues
-    there. `master` stays where it was and is updated only at release time
-    (until then the program's and the server's `master` pin the withdrawn
-    tags, so they no longer build from a fresh clone). CI runs in full on
-    pushes to `2.0.0-dev` and to `master` and on pull requests.
+P40. **Development happens on the `-dev` branches; `master` waits for the
+    release; testing is local.** Every repository has a development branch
+    named after its next release, created from `master` on 2026-11-28:
+    `2.0.0-dev`, and `1.0.0-dev` for neuromz-protocol. It is the default
+    branch on GitHub, and all development continues there. `master` stays
+    where it was and is updated only at release time (until then the
+    program's and the server's `master` pin the withdrawn tags, so they no
+    longer build from a fresh clone). All testing is local: Windows with
+    MSVC (plain, OpenMP, CUDA), and GCC, Clang and the sanitizers on Linux
+    through `linux-check.sh`, which builds the four repositories side by
+    side. The CI files stay in the repositories for the public badge; a
+    change is done when the local checks pass, not when CI does. Nothing
+    reaches GitHub (pushes, branches, tags, releases, settings) without the
+    owner's approval.
 
 P41. **The repositories pin each other by full commit SHA.** Every
     FetchContent declaration between the repositories (the program and the
     server fetch the library and the protocol) and every ref that CI checks
     out by default (the program's and the protocol's CI build the server)
-    names the full 40-digit SHA of a commit on the dependency's `2.0.0-dev`,
-    never a tag or a branch, so a build is reproducible. The local-path
-    options (`-DNMZ_LOCAL_PATH`, `-DNMZP_LOCAL_PATH`) and the manual CI
-    inputs (`protocol_ref`, `server_ref`) stay, for working on several
-    repositories at once or trying another commit; one job of the program's
-    CI also builds against the library's `2.0.0-dev` as it is, to show
-    breakage before a pin moves. **When a dependency changes, the pinned
-    SHAs in the dependent repositories are updated in the same piece of
-    work**, and the dependents' CI passes with the new pins before the work
-    is done. A pin is a commit on `2.0.0-dev`, not necessarily the newest: a
-    commit that changes only a dependency's CI or documentation needs no new
-    pins, which also ends the one cycle (the protocol's CI builds the
-    server, which pins the protocol).
+    names the full 40-digit SHA of a commit on the dependency's development
+    branch, never a tag or a branch, so a build is reproducible. The
+    local-path options (`-DNMZ_LOCAL_PATH`, `-DNMZP_LOCAL_PATH`) and the
+    manual CI inputs (`protocol_ref`, `server_ref`) stay, for working on
+    several repositories at once or trying another commit; one job of the
+    program's CI also builds against the library's `2.0.0-dev` as it is, to
+    show breakage before a pin moves. **When a dependency changes, the
+    pinned SHAs in the dependent repositories are updated in the same piece
+    of work**, and the dependents are built and tested against those commits
+    (through the local-path options while the commits are not on GitHub yet)
+    before the work is done. A pin is a commit on the development branch,
+    not necessarily the newest: a commit that changes only a dependency's CI
+    or documentation needs no new pins, which also ends the one cycle (the
+    protocol's CI builds the server, which pins the protocol).
+
+P43. **Platform code stays in the portability layers; nothing depends on
+    Python.** Code that differs between operating systems lives only in each
+    repository's portability layer: the library's `src/platform.c` (file
+    names, the process-wide lock, loading shared libraries such as cuBLAS),
+    the program's `src/platform.c`, the protocol's `src/sock.c` (sockets,
+    randomness, sleeping, clocks) and the server's `src/plat.c` (with
+    `src/service.c` for the Windows service); the tests keep theirs in one
+    helper each. Everything else is plain C11 on top of these layers, with
+    no `#if` on the operating system: the only other conditionals are
+    compiler attributes (`__attribute__((format))`), the feature macros a
+    layer needs for strict C11, and device backends such as CUDA behind the
+    library's table of ops. A new platform need is added to the layer, not
+    to the code that uses it. No repository needs Python to build, test or
+    run: Python is used only in the local experiments, inside their own
+    virtual environment.
 
 For the protocol itself:
 
 P42. **The protocol's number is its major; features are capabilities.**
-    Following P39, a feature added within protocol 2 is announced as a
+    Following P39, a feature added within the protocol is announced as a
     capability in the greeting (and in `server.capabilities`); a client
     checks for it before using it, and a server without it answers with a
     clear error (`unknown_operation`, `invalid_argument`) rather than a
     broken connection. The handshake's minor stays 0: it keeps its place
     and its rules (PROTOCOL §5.4), so the bytes on the wire do not change,
     and a second way to announce features would only be one more thing for
-    two peers to disagree on. `--version` lines say `wire protocol 2`; the
-    `"2.0"` strings of WELCOME and `health` stay as they are on the wire.
+    two peers to disagree on. `--version` lines name this repository's
+    version (`protocol 1.0.0-dev`); the handshake, WELCOME and `health` carry
+    the protocol's number (`1.0`, P44).
 
-## Protocol 1 (HTTP, withdrawn)
+P44. **The protocol is protocol 1; the HTTP stage never counts.** The
+    HTTP + JSON interface of early development (P1–P17) was a stage of
+    development, not a protocol version, so the binary protocol is
+    protocol 1: the handshake says major 1, minor 0, WELCOME and `health`
+    say `"1.0"`, and `min_major` is 1. Nothing else on the wire changes; the
+    test vectors and PROTOCOL §18 carry the new bytes. The records P18–P42
+    call the HTTP stage "protocol 1" and this protocol "protocol 2": read
+    them as the HTTP stage and protocol 1. This repository's version follows
+    the protocol (P39): `1.0.0-dev`, its first release 1.0.0.
 
-Kept for the record; where protocol 2 replaced a decision, it says so.
+P45. **Port 6769.** N-R-M-Z on a phone keypad: the default port of the
+    server and the clients (`NMZP_DEFAULT_PORT`), instead of 8470 (P19).
+    IANA's registry (checked on 2026-11-28) lists 6769/tcp and 6769/udp as
+    `adi-gxp-srvprt`, ADInstruments GxP Server (registered in 2005); 8470
+    was registered too (`cisco-avp`). NeuroMZ is not registered, so a
+    machine that runs that service sets `port` in server.conf and in the
+    clients' profiles; nothing in the protocol depends on the number.
+
+## The HTTP stage (withdrawn)
+
+Kept for the record; where the protocol replaced a decision, it says so.
 
 P1. HTTP/1.1 and JSON, under `/v1` — *replaced by P18–P21.*
 P2. No TLS in the servers, a reverse proxy instead — *replaced by P25.*

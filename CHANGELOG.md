@@ -2,16 +2,35 @@
 
 All notable changes to the NeuroMZ protocol and its C wire library. The
 format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
-The wire protocol has its own number (2, [PROTOCOL §16](PROTOCOL.md#16-versions-and-extensions)),
-apart from this repository's version.
+This repository versions the protocol: its MAJOR is the protocol's number
+([PROTOCOL §16](PROTOCOL.md#16-versions-and-extensions)).
 
-## Unreleased (2.0.0-dev)
+## Unreleased (1.0.0-dev)
 
-Nothing is released yet. The version numbers below (1.0.0, 2.0.0) were
-development snapshots: their tags and GitHub releases were withdrawn on
-2026-11-28, and the first release will be 2.0.0 of every NeuroMZ
-repository ([`docs/DESIGN.md`](docs/DESIGN.md) P38–P41). The wire protocol
-of these entries is protocol 1 (HTTP, withdrawn) and protocol 2.
+Nothing is released yet; this repository's first release will be 1.0.0,
+for protocol 1 ([`docs/DESIGN.md`](docs/DESIGN.md) P38–P39). The version
+numbers below (1.0.0, 2.0.0) were development snapshots: their tags and
+GitHub releases were withdrawn on 2026-11-28. In those entries "protocol 1"
+is the HTTP stage of early development and "protocol 2" the binary
+protocol, which is protocol 1 since P44.
+
+### Protocol 1, version 1.0.0-dev, port 6769 — 2026-11-28
+
+- **The binary protocol is protocol 1**: the handshake says major 1,
+  minor 0, WELCOME and `health` say `"1.0"`, `min_major` is 1 (P44). The
+  HTTP stage of early development never counted as a protocol version.
+  The test vectors and PROTOCOL §18 carry the new bytes; nothing else on
+  the wire changed.
+- **This repository versions the protocol**: `1.0.0-dev` (`NMZP_VERSION`;
+  CMake's VERSION 1.0.0, checked against `nmzp.h` and against the
+  protocol's number), its first release 1.0.0, its development branch
+  `1.0.0-dev` (P39, P40).
+- **Port 6769** (`NMZP_DEFAULT_PORT`; N-R-M-Z on a phone keypad), instead
+  of 8470. IANA lists 6769 for ADInstruments GxP Server (P45).
+- Randomness, sleeping and the clock moved from `util.c` to `sock.c`, the
+  library's only file with operating-system code (P43).
+- The msgpack-python cross-check of the vectors left the repository (no
+  NeuroMZ repository depends on Python); testing is local (P40).
 
 ### Versions and branches — 2026-11-28
 
