@@ -1,12 +1,13 @@
 # neuromz-protocol — design
 
 Why the NeuroMZ protocol looks the way it does. The protocol itself is
-[`PROTOCOL.md`](../PROTOCOL.md); the library's design (decisions 1–165) is
-in [neuromz/docs/DESIGN.md](https://github.com/mzprog/neuromz/blob/master/docs/DESIGN.md),
+[`PROTOCOL.md`](../PROTOCOL.md); the library's design (decisions 1–172) is
+in [neuromz/docs/DESIGN.md](https://github.com/mzprog/neuromz/blob/2.0.0-dev/docs/DESIGN.md),
 the reference server's in
-[neuromz-server/docs/DESIGN.md](https://github.com/mzprog/neuromz-server/blob/master/docs/DESIGN.md).
+[neuromz-server/docs/DESIGN.md](https://github.com/mzprog/neuromz-server/blob/2.0.0-dev/docs/DESIGN.md).
 Decisions here are numbered P1, P2, …; P1–P17 are protocol 1 (HTTP, 2026,
-withdrawn), P18 onwards protocol 2.
+withdrawn), P18 onwards protocol 2; P38–P41 are the versions, branches and
+pins that every NeuroMZ repository shares.
 
 ## Goals
 
@@ -31,8 +32,8 @@ P18. **A binary protocol of its own over TCP; no HTTP at all** (the
     lets one connection carry several requests at once. The price: `curl`
     and browsers cannot talk to a server directly any more; a web
     application talks to it through the PHP client, the way it talks to
-    its database. Protocol 1 stays in the history (tag `v1.0.0`) and the
-    changelog.
+    its database. Protocol 1 stays in the history and the changelog (its
+    tag `v1.0.0` was withdrawn with the others, P38).
 
 P19. **Port 8470, unchanged.** A 2.0 server replaces a 1.0 server on the
     same machine, so existing firewall rules, SSH tunnels and client
@@ -48,7 +49,7 @@ P20. **Frames: a 12-byte little-endian header, then the payload.**
     bits that must be zero: a receiver that meets anything else closes the
     connection, so a later version cannot be misread by an older peer — new
     behaviour comes with a new minor version or a capability (P23), never
-    silently.
+    silently. *(Since P42: with a capability; the minor stays 0.)*
 
 P21. **Payloads: a documented MessagePack subset, not a TLV of our own.**
     Both are easy to write in pure PHP (`pack`/`unpack` have every integer
@@ -88,8 +89,8 @@ P23. **The server speaks first; magic and version in both handshake
     server announces its highest version and its lowest major; the client
     picks; a mismatch is `unsupported_version` with the server's range in
     `details`. A protocol 1 client (HTTP) gets an ERROR frame saying that
-    the server speaks protocol 2; a protocol 2 client that reaches a 0.1
-    server waits for a greeting that never comes and says so.
+    the server speaks protocol 2; a protocol 2 client that reaches a
+    protocol 1 server waits for a greeting that never comes and says so.
 
 P24. **Authentication: HMAC-SHA256 challenge and response, keyed by
     SHA-256 of the token.** The server never stored tokens, only their
@@ -219,7 +220,81 @@ P37. **Every choice checked against pure PHP.** Little-endian `u32`
     (`neuromz-php`); PROTOCOL.md and the vectors are written to be enough
     to build it.
 
-## Protocol 1 (1.0.0, withdrawn in 2.0.0)
+## Versions, branches and pins
+
+The owner's decision of 2026-11-28, in the same words in the DESIGN.md of
+every NeuroMZ repository (neuromz, neuromz-cli, neuromz-protocol,
+neuromz-server).
+
+P38. **No releases and no version tags until the owner says the project is
+    ready.** NeuroMZ is in active development. The version tags and GitHub
+    releases published before 2026-11-28 (library 2.0.0 to 2.2.0, program
+    2.0.0 to 2.3.0, protocol 1.0.0 and 2.0.0, server 0.1.0 and 0.2.0) were
+    development snapshots and are withdrawn; where older decisions and
+    changelog entries name those numbers, they name the snapshots. The
+    NeuroMZ 1 code keeps its tags (`v1-legacy`, and `v1.0` in the library).
+    No tag and no release is made in any repository until the owner says the
+    project is ready.
+
+P39. **Versions move in lockstep by MAJOR; the wire protocol has its own
+    number.** All repositories share the same MAJOR version: the first
+    release will be 2.0.0 for every repository, including repositories
+    created later that never had a 1.x. MINOR and PATCH are each
+    repository's own: several repositories may move together while others
+    stay on older numbers. Any 2.x repository works with any other 2.x
+    repository: newer features are negotiated through the capabilities of
+    the protocol's handshake, and a missing feature gives a clear error,
+    never a crash. A breaking change means 3.0.0 for all repositories. The
+    wire protocol's version (the number in the handshake, now 2) is separate
+    from the repositories' versions and changes only when the bytes on the
+    wire change incompatibly. Until the release the version string of every
+    repository is `2.0.0-dev`: CMake's `project(VERSION)` holds numbers
+    only, so it says 2.0.0, and the full string is carried in a variable
+    next to it and in a macro in the code. `neuromz --version` names the
+    program, the library and the wire protocol (`neuromz-cli 2.0.0-dev
+    (library 2.0.0-dev, wire protocol 2)`), and `neuromz-server --version`
+    the same way.
+
+P40. **Development happens on `2.0.0-dev`; `master` waits for the release.**
+    Every repository has the branch `2.0.0-dev`, created from `master` on
+    2026-11-28 and its default branch on GitHub; all development continues
+    there. `master` stays where it was and is updated only at release time
+    (until then the program's and the server's `master` pin the withdrawn
+    tags, so they no longer build from a fresh clone). CI runs in full on
+    pushes to `2.0.0-dev` and to `master` and on pull requests.
+
+P41. **The repositories pin each other by full commit SHA.** Every
+    FetchContent declaration between the repositories (the program and the
+    server fetch the library and the protocol) and every ref that CI checks
+    out by default (the program's and the protocol's CI build the server)
+    names the full 40-digit SHA of a commit on the dependency's `2.0.0-dev`,
+    never a tag or a branch, so a build is reproducible. The local-path
+    options (`-DNMZ_LOCAL_PATH`, `-DNMZP_LOCAL_PATH`) and the manual CI
+    inputs (`protocol_ref`, `server_ref`) stay, for working on several
+    repositories at once or trying another commit; one job of the program's
+    CI also builds against the library's `2.0.0-dev` as it is, to show
+    breakage before a pin moves. **When a dependency changes, the pinned
+    SHAs in the dependent repositories are updated in the same piece of
+    work**, and the dependents' CI passes with the new pins before the work
+    is done. A pin is a commit on `2.0.0-dev`, not necessarily the newest: a
+    commit that changes only a dependency's CI or documentation needs no new
+    pins, which also ends the one cycle (the protocol's CI builds the
+    server, which pins the protocol).
+
+For the protocol itself:
+
+P42. **The protocol's number is its major; features are capabilities.**
+    Following P39, a feature added within protocol 2 is announced as a
+    capability in the greeting (and in `server.capabilities`); a client
+    checks for it before using it, and a server without it answers with a
+    clear error (`unknown_operation`, `invalid_argument`) rather than a
+    broken connection. The handshake's minor stays 0: it keeps its place
+    and its rules (PROTOCOL §5.4), so the bytes on the wire do not change,
+    and a second way to announce features would only be one more thing for
+    two peers to disagree on. `--version` lines say `wire protocol 2`; the
+    `"2.0"` strings of WELCOME and `health` stay as they are on the wire.
+
+## Protocol 1 (HTTP, withdrawn)
 
 Kept for the record; where protocol 2 replaced a decision, it says so.
 

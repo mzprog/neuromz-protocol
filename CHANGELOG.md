@@ -1,17 +1,45 @@
 # Changelog
 
 All notable changes to the NeuroMZ protocol and its C wire library. The
-format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
-the protocol follows [semantic versioning](PROTOCOL.md#16-versions-and-extensions).
+format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+The wire protocol has its own number (2, [PROTOCOL §16](PROTOCOL.md#16-versions-and-extensions)),
+apart from this repository's version.
 
-## [2.0.0] — 2026-11-27
+## Unreleased (2.0.0-dev)
+
+Nothing is released yet. The version numbers below (1.0.0, 2.0.0) were
+development snapshots: their tags and GitHub releases were withdrawn on
+2026-11-28, and the first release will be 2.0.0 of every NeuroMZ
+repository ([`docs/DESIGN.md`](docs/DESIGN.md) P38–P41). The wire protocol
+of these entries is protocol 1 (HTTP, withdrawn) and protocol 2.
+
+### Versions and branches — 2026-11-28
+
+- **Version `2.0.0-dev`** of this repository (`NMZP_VERSION`; CMake's
+  `project(VERSION)` 2.0.0 with the full string in `NMZP_VERSION_STRING`
+  next to it, checked against `nmzp.h` when configuring). The wire protocol
+  is still **2**, its bytes unchanged.
+- **Additions within protocol 2 come with capabilities**; the handshake's
+  minor stays 0 (PROTOCOL §5.4 and §16, P42).
+- The test vectors' greeting and hello carry the version `2.0.0-dev`
+  instead of withdrawn version numbers: `frame-greeting` and `frame-hello`
+  are 4 bytes longer, and PROTOCOL §18 shows the new bytes.
+- The client's message for a peer that sends no greeting names protocol 1
+  instead of a withdrawn server version.
+- **Development on the branch `2.0.0-dev`**, the default branch; CI runs on
+  pushes to it and to `master` and on pull requests; the conformance jobs
+  build neuromz-server at a pinned commit (P41).
+- **No releases and no version tags** until the owner says the project is
+  ready (P38–P41).
+
+### 2.0.0 — development snapshot, 2026-11-27 (withdrawn)
 
 Protocol 2: a binary protocol of its own over TCP. **HTTP is removed
 completely** — servers of protocol 2 do not speak HTTP, `openapi.yaml` is
 gone, and protocol 1 lives on only in this history (tag `v1.0.0`). Design:
 [`docs/DESIGN.md`](docs/DESIGN.md) P18–P37.
 
-### Added
+#### Added
 - **The protocol** ([`PROTOCOL.md`](PROTOCOL.md), byte by byte): one TCP
   connection (port 8470) of length-prefixed frames (`u32 length, u8 type,
   u8 flags, u16 reserved, u32 request id`, little-endian; 12 frame types,
@@ -46,21 +74,21 @@ gone, and protocol 1 lives on only in this history (tag `v1.0.0`). Design:
   in-flight limits, aborts, upload integrity and disconnects in the middle
   of streams.
 
-### Changed
+#### Changed
 - `nmzp_parse_hostport` takes `host` or `host:port` (`[v6]:port`); URLs are
   refused.
 - JSON is no longer part of the wire: `nmzp_json.h` keeps the parser and
   writer for the trace's JSON lines and for files.
 
-### Removed
+#### Removed
 - HTTP/1.1 (heads, chunked bodies, the keep-alive client), Server-Sent
   Events, bearer tokens and `?access_token=`, CORS, `openapi.yaml`.
 
-## [1.0.0] — 2026-11-27
+### 1.0.0 — development snapshot, 2026-11-27 (withdrawn)
 
 The first version. Design: [`docs/DESIGN.md`](docs/DESIGN.md) P1–P17.
 
-### Added
+#### Added
 - **The protocol** ([`PROTOCOL.md`](PROTOCOL.md), [`openapi.yaml`](openapi.yaml),
   OpenAPI 3.1): HTTP/1.1 + JSON under `/v1`; a bearer token (and
   `?access_token=` for GET, for `EventSource`) with the permissions `read`,
@@ -94,6 +122,3 @@ The first version. Design: [`docs/DESIGN.md`](docs/DESIGN.md) P1–P17.
   inputs into every parser), run under ASan + UBSan in CI; CI on Linux
   (GCC, Clang) and Windows (MSVC), and the conformance suite against a live
   neuromz-server on both.
-
-[2.0.0]: https://github.com/mzprog/neuromz-protocol/releases/tag/v2.0.0
-[1.0.0]: https://github.com/mzprog/neuromz-protocol/releases/tag/v1.0.0

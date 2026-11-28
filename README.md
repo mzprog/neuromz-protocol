@@ -10,13 +10,16 @@ an HMAC-SHA256 challenge so the token never travels, several requests at
 once, files in chunks with their SHA-256, and training progress pushed on
 the same connection. There is no HTTP.
 
+NeuroMZ is in active development, with no releases yet (this repository's
+version is `2.0.0-dev`; development happens on the `2.0.0-dev` branch).
+
 | | |
 |---|---|
 | [`PROTOCOL.md`](PROTOCOL.md) | the protocol, version **2.0**, byte by byte: enough to write a client or a server from it alone |
 | [`tests/vectors/`](tests/vectors/) | canonical bytes of every encoding, frame and handshake, with typed JSON descriptions: what another implementation tests against |
 | [`conformance/`](conformance/conformance.c) | `nmz-conformance`: checks a live server against the protocol |
 | [`include/nmzp.h`](include/nmzp.h), [`src/`](src/) | `nmzp`, the protocol in C11 (frames, the payload codec, the handshake and HMAC-SHA256, a client, sockets, SHA-256), shared by the server and the program |
-| [`docs/DESIGN.md`](docs/DESIGN.md) | why it looks the way it does (P18–P37; P1–P17 were protocol 1) |
+| [`docs/DESIGN.md`](docs/DESIGN.md) | why it looks the way it does (P18–P37 and P42; P1–P17 were protocol 1; P38–P41 are the versions, branches and pins of every repository) |
 
 The NeuroMZ repositories:
 [`neuromz`](https://github.com/mzprog/neuromz) (the library) ·
@@ -114,7 +117,8 @@ directory of them.
 
 ```cmake
 include(FetchContent)
-FetchContent_Declare(neuromz_protocol GIT_REPOSITORY https://github.com/mzprog/neuromz-protocol.git GIT_TAG v2.0.0)
+# no releases yet: pin a full commit SHA of the 2.0.0-dev branch, as the server and the program do
+FetchContent_Declare(neuromz_protocol GIT_REPOSITORY https://github.com/mzprog/neuromz-protocol.git GIT_TAG <commit SHA>)
 FetchContent_MakeAvailable(neuromz_protocol)
 target_link_libraries(app PRIVATE nmzp::nmzp)
 ```
@@ -143,13 +147,14 @@ and `nmzp_mw_*` read and write payloads; `nmzp_frame_next` splits frames
 
 ## Versions
 
-The protocol has a major and a minor version (PROTOCOL
-[§16](PROTOCOL.md#16-versions-and-extensions)): a 2.x server answers every
-2.0 request as documented; minor versions only add operations, keys,
-capabilities and error codes; an incompatible change is a new major,
-negotiated in the handshake. The repository's tags are the protocol's
-versions with a patch number (`v2.0.0`). Protocol 1 (HTTP + JSON) was
-`v1.0.0`; it is withdrawn. Changes: [`CHANGELOG.md`](CHANGELOG.md).
+The wire protocol has its own number, 2 (PROTOCOL [§5.4](PROTOCOL.md#54-versions)
+and [§16](PROTOCOL.md#16-versions-and-extensions)): it changes only when
+the bytes on the wire change incompatibly, and then it is a new major,
+negotiated in the handshake; additions within protocol 2 come with
+capabilities. It is not this repository's version: every NeuroMZ
+repository is `2.0.0-dev` until the first release, which will be 2.0.0 of
+all of them ([DESIGN](docs/DESIGN.md) P38–P41). Protocol 1 (HTTP + JSON) is
+withdrawn. Changes: [`CHANGELOG.md`](CHANGELOG.md).
 
 ## License
 
