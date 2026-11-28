@@ -28,6 +28,9 @@ protocol, which is protocol 1 since P44.
   compiler's new warning no longer stops the program or the server from
   building from their pins. `linux-check.sh` still builds with
   `-DNMZP_WERROR=ON`.
+- **Docs: P46**, shared by every repository: before any push,
+  `linux-check.sh` passes on Linux (GCC and Clang, plain and with ASan +
+  UBSan, warnings as errors, every suite).
 
 ### Protocol 1, version 1.0.0-dev, port 6769 — 2026-11-28
 

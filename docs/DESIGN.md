@@ -6,8 +6,8 @@ in [neuromz/docs/DESIGN.md](https://github.com/mzprog/neuromz/blob/2.0.0-dev/doc
 the reference server's in
 [neuromz-server/docs/DESIGN.md](https://github.com/mzprog/neuromz-server/blob/2.0.0-dev/docs/DESIGN.md).
 Decisions here are numbered P1, P2, …; P1–P17 are the HTTP stage of early
-development (withdrawn), P18 onwards the NeuroMZ protocol; P38–P41 and P43
-are shared by every NeuroMZ repository. The records P18–P42 call the HTTP
+development (withdrawn), P18 onwards the NeuroMZ protocol; P38–P41, P43 and
+P46 are shared by every NeuroMZ repository. The records P18–P42 call the HTTP
 stage "protocol 1" and the binary protocol "protocol 2"; since P44 the
 binary protocol is protocol 1.
 
@@ -310,6 +310,23 @@ P43. **Platform code stays in the portability layers; nothing depends on
     to the code that uses it. No repository needs Python to build, test or
     run: Python is used only in the local experiments, inside their own
     virtual environment.
+
+P46. **Before any push, `linux-check.sh` passes on Linux.** Nothing is
+    pushed to any NeuroMZ repository until `scripts/linux-check.sh` (in the
+    library's repository; it builds the four repositories side by side)
+    has passed on Linux at the commits to be pushed: GCC and Clang, each in
+    Release and with ASan + UBSan, warnings as errors in every repository
+    (the library and the protocol included, which are lenient only as
+    another project's dependency), and every suite — the protocol's unit
+    tests, vectors and fuzzer, the library's tests plain and with OpenMP,
+    the server's unit, integration and conformance tests, and the
+    program's smoke test with its remote section against the server just
+    built. The server and the program are built on the local checkouts,
+    so a pin only ever moves to commits that passed with their dependents.
+    A GPU test that skips without a GPU is not a failure; the Windows
+    checks (MSVC plain, OpenMP and CUDA) are still run as the decision on
+    local testing says. The script never reads the user's `client.conf`,
+    so no check can reach a real server.
 
 For the protocol itself:
 
