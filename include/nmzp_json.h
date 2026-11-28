@@ -1,4 +1,4 @@
-/* nmzp_json.h — JSON (RFC 8259) for the one payload of protocol 2 that is
+/* nmzp_json.h — JSON (RFC 8259) for the one payload of the protocol that is
  * JSON by definition — trace lines in the library's format (PROTOCOL §12.6)
  * — and for files (the reference server's store metadata, the test
  * vectors' descriptions). Not used for framing or payloads: the wire is

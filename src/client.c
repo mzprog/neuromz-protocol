@@ -1,4 +1,4 @@
-/* client.c — a client of protocol 2: the handshake and its authentication
+/* client.c — a client of the NeuroMZ protocol: the handshake and its authentication
  * (PROTOCOL §5, §6), frames in and out, and calls — one request and its
  * answer, uploads and downloads in DATA frames with their END (§8), and
  * subscriptions (§9). One request at a time per nmzp_client; frames of
@@ -181,8 +181,7 @@ int nmzp_client_connect(nmzp_client *c, nmzp_error *e) {
     if (r <= 0) {
         if (r == 0)
             snprintf(msg, sizeof msg,
-                     "%s:%d sent no greeting within %d s: it is not a NeuroMZ server of protocol 2 (a server of "
-                     "protocol 1 speaks HTTP)",
+                     "%s:%d sent no greeting within %d s: it is not a NeuroMZ server",
                      c->host, c->port, c->timeout_ms / 1000);
         else snprintf(msg, sizeof msg, "%s", c->err);
         goto fail;
@@ -714,7 +713,7 @@ int nmzp_parse_hostport(const char *s, char *host, size_t hostn, int *port) {
     size_t hl;
     if (!s || !*s) return -1;
     if (strstr(p, "://")) return -1; /* no URLs: host or host:port */
-    if (*p == '[') { /* [::1]:8470 */
+    if (*p == '[') { /* [::1]:6769 */
         const char *close = strchr(p, ']');
         if (!close) return -1;
         hl = (size_t)(close - p - 1);

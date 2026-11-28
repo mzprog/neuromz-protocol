@@ -1,4 +1,4 @@
-# The NeuroMZ protocol, version 2.0
+# The NeuroMZ protocol 1
 
 How clients talk to a NeuroMZ server: a binary protocol of its own over
 one TCP connection, in the family of MySQL's client/server protocol, SQL
@@ -12,10 +12,8 @@ payload form described here; the [conformance suite](conformance/) checks
 a live server. The models are those of the
 [NeuroMZ library](https://github.com/mzprog/neuromz).
 
-Protocol 1 (HTTP/1.1 + JSON, 2026) is withdrawn: servers of this version
-do not speak HTTP at all. It remains in this repository's git history and
-in [`CHANGELOG.md`](CHANGELOG.md). The protocol's number (2) is its own, not
-the version of a program or a repository (§16).
+This is protocol 1 (major 1, minor 0 in the handshake). The protocol's
+number is its own, not the version of a program or a repository (§16).
 
 Contents:
 [1 conventions](#1-conventions) ·
@@ -63,9 +61,10 @@ Contents:
 
 ## 2. The connection
 
-The server listens on TCP port **8470** (the port of protocol 1: a server
-of this version replaces a 1.0 server, and a client of the wrong version
-fails at once, §5.4). The conversation:
+The server listens on TCP port **6769** by default (N-R-M-Z on a phone
+keypad). IANA lists 6769 for another service (ADInstruments GxP Server,
+`adi-gxp-srvprt`), so a machine that runs that one configures another port
+for the server and its clients. The conversation:
 
 ```
 client                                  server
@@ -247,7 +246,7 @@ The payload starts with 12 fixed bytes, then a map:
 | offset | size | field |
 |---|---|---|
 | 0 | 8 | magic: `4e 4d 5a 50 0d 0a 1a 0a` (`"NMZP\r\n\x1a\n"`) |
-| 8 | 2 | `u16` little-endian: the highest protocol major the server speaks (2) |
+| 8 | 2 | `u16` little-endian: the highest protocol major the server speaks (1) |
 | 10 | 2 | `u16` little-endian: its minor (0) |
 | 12 | … | a map (§4) |
 
@@ -262,7 +261,7 @@ The map:
 |---|---|---|
 | `"server"` | str | the server program (`"neuromz-server"`) |
 | `"version"` | str | the program's version (`"2.0.0-dev"`), not the protocol's |
-| `"min_major"` | int | the lowest protocol major it accepts (2) |
+| `"min_major"` | int | the lowest protocol major it accepts (1) |
 | `"auth"` | str | `"hmac-sha256"` (§6) or `"none"` (every client is `anonymous`) |
 | `"nonce"` | bin | 32 random bytes from the operating system, new for every connection |
 | `"max_frame"` | int | the largest frame payload it accepts after the handshake (≥ 65 536) |
@@ -294,7 +293,7 @@ A map:
 
 | key | type | |
 |---|---|---|
-| `"protocol"` | str | the version in use, `"MAJOR.MINOR"` (`"2.0"`) |
+| `"protocol"` | str | the version in use, `"MAJOR.MINOR"` (`"1.0"`) |
 | `"user"` | str | the token's user (`"anonymous"` without authentication) |
 | `"permissions"` | array of str | `"read"`, `"train"`, `"admin"` (§6.3) |
 | `"proof"` | bin (32) | with `hmac-sha256`: the server's proof (§6) |
@@ -307,20 +306,20 @@ A map:
 ### 5.4 Versions
 
 The handshake carries a major and a minor version. The major is the
-protocol's number (2 here), and majors are incompatible with each other.
+protocol's number (1 here), and majors are incompatible with each other.
 The minor is 0 and stays 0: additions within a major come as capabilities
 and as operations, map keys and error codes that older peers ignore
 (§16). The rules below still say what a peer does with a minor it does not
 know.
 
 * The **client** reads the greeting's magic first: anything else means the
-  peer is not a NeuroMZ server of protocol 2 or later (a server of
-  protocol 1 speaks HTTP and sends nothing first: the client's wait for a
-  greeting times out). It then chooses a major in
+  peer is not a NeuroMZ server (one that sends nothing first, an HTTP
+  server for one, makes the client's wait for a greeting time out). It then
+  chooses a major in
   [`min_major`, the greeting's major] that it speaks — the highest one — and
   the minor: the smaller of its own and the server's when the majors are
   equal, its own otherwise. If there is none, it closes and says so ("the
-  server speaks protocol 2.0 to 3.1; this client speaks 4").
+  server speaks protocol 1.0 to 2.1; this client speaks 3").
 * The **server** checks the hello's magic (`bad_magic` otherwise) and its
   major (`unsupported_version` unless it is in [`min_major`, its major]),
   answering with ERROR, request id 0, and closing. The error's `details`
@@ -329,7 +328,8 @@ know.
   server's is accepted at the server's minor.
 * A server that receives `GET `, `POST`, `PUT `, `HEAD`, `DELE` or `OPTI`
   as its first four bytes (an HTTP client) answers with ERROR
-  `protocol_error` saying that it speaks protocol 2, not HTTP, and closes.
+  `protocol_error` saying that it speaks the NeuroMZ protocol, not HTTP, and
+  closes.
 
 ## 6. Authentication
 
@@ -554,7 +554,7 @@ An EVENT's payload: `{"event": str, "seq": int, "data": map}`.
   server's handshake timeout (10 s on the reference server) gets ERROR
   `timeout` and the connection closes. A client that receives no complete
   greeting within its own timeout gives up (it is probably not talking to
-  a NeuroMZ server of protocol 2).
+  a NeuroMZ server).
 * **Requests** have no time limit: inference is bounded by the size of its
   request (samples, characters to generate, trace events), training runs
   as a job.
@@ -621,7 +621,7 @@ used (`"device"`).
 
 | op | arguments | permission | result |
 |---|---|---|---|
-| `health` | — | any | `{"status": "ok", "protocol": "2.0"}` |
+| `health` | — | any | `{"status": "ok", "protocol": "1.0"}` |
 | `server.info` | — | any | `{"name", "version", "protocol", "library", "started": int, "uptime_s": int, "session", "user": {"name", "permissions": [str]}}` |
 | `server.capabilities` | — | any | below |
 
@@ -629,7 +629,7 @@ used (`"device"`).
 policy before sending work:
 
 ```
-{"protocol": "2.0", "auth": true,
+{"protocol": "1.0", "auth": true,
  "backends": [
    {"name": "cpu", "available": true, "device": "host CPU (6 threads)", "threads": 6},
    {"name": "cuda", "available": true, "device": "NVIDIA GeForce GTX 1660 Ti",
@@ -923,11 +923,11 @@ or both (`server.capabilities` → `save`); others get `save_not_allowed`.
 
 ## 16. Versions and extensions
 
-This is protocol **2** (major 2, minor 0 in the handshake). The number is
+This is protocol **1** (major 1, minor 0 in the handshake). The number is
 the protocol's own: it is not the version of neuromz-server, of the
 program or of this repository, and it changes only when the bytes on the
 wire change incompatibly — then it is a new major, negotiated in the
-handshake (§5.4). Within protocol 2 a server answers every request as
+handshake (§5.4). Within protocol 1 a server answers every request as
 documented here, and additions (operations, map keys, error codes, event
 types) never change a frame header or the meaning of what exists. A new
 feature comes with a capability (§16.1): a client checks the greeting's
@@ -940,7 +940,7 @@ treat unknown error codes by their range (§11).
 ### 16.1 Capabilities
 
 The greeting's `capabilities` (and `server.capabilities` → `capabilities`)
-name optional parts; in protocol 2 so far:
+name optional parts; in protocol 1 so far:
 
 | capability | |
 |---|---|
@@ -993,11 +993,11 @@ The server's GREETING — header, the fixed 12 bytes, the map
 
 ```
 ba 00 00 00 01 00 00 00 00 00 00 00   header: length 186, type 0x01, flags 0, reserved 0, request id 0
-4e 4d 5a 50 0d 0a 1a 0a 02 00 00 00   magic "NMZP\r\n\x1a\n", major 2, minor 0
+4e 4d 5a 50 0d 0a 1a 0a 01 00 00 00   magic "NMZP\r\n\x1a\n", major 1, minor 0
 88 a6 73 65 72 76 65 72 ae 6e 65 75 72 6f 6d 7a
 2d 73 65 72 76 65 72 a7 76 65 72 73 69 6f 6e a9
 32 2e 30 2e 30 2d 64 65 76 a9 6d 69 6e 5f 6d 61
-6a 6f 72 02 a4 61 75 74 68 ab 68 6d 61 63 2d 73
+6a 6f 72 01 a4 61 75 74 68 ab 68 6d 61 63 2d 73
 68 61 32 35 36 a5 6e 6f 6e 63 65 c4 20 10 11 12
 13 14 15 16 17 18 19 1a 1b 1c 1d 1e 1f 20 21 22
 23 24 25 26 27 28 29 2a 2b 2c 2d 2e 2f a9 6d 61
@@ -1009,7 +1009,7 @@ a3 66 33 32 a6 73 74 61 74 75 73 a2 6f 6b
 
 Reading the map: `88` is a map of 8 pairs; `a6 73 65 72 76 65 72` the str
 `"server"`, `ae …` the 14 bytes of `"neuromz-server"`; `a9 6d 69 6e 5f 6d 61
-6a 6f 72 02` is `"min_major": 2`; `c4 20` starts a `bin` of 32 bytes (the
+6a 6f 72 01` is `"min_major": 1`; `c4 20` starts a `bin` of 32 bytes (the
 nonce); `ce 00 40 00 00` is 4 194 304 as `uint 32` (big-endian, inside the
 payload); `94` an array of 4 str. The client checks the magic, then the
 version, then reads the map.
@@ -1019,7 +1019,7 @@ the `auth.json` values for the test token and these nonces:
 
 ```
 a4 00 00 00 02 00 00 00 00 00 00 00   header: length 164, type 0x02, flags 0, reserved 0, request id 0
-4e 4d 5a 50 0d 0a 1a 0a 02 00 00 00   magic "NMZP\r\n\x1a\n", major 2, minor 0
+4e 4d 5a 50 0d 0a 1a 0a 01 00 00 00   magic "NMZP\r\n\x1a\n", major 1, minor 0
 86 a6 63 6c 69 65 6e 74 ab 6e 65 75 72 6f 6d 7a
 2d 63 6c 69 a7 76 65 72 73 69 6f 6e a9 32 2e 30
 2e 30 2d 64 65 76 a4 61 75 74 68 ab 68 6d 61 63
@@ -1036,7 +1036,7 @@ The server's WELCOME (`frame-welcome.bin`):
 
 ```
 a4 00 00 00 03 00 00 00 00 00 00 00   header: length 164, type 0x03, flags 0, reserved 0, request id 0
-89 a8 70 72 6f 74 6f 63 6f 6c a3 32 2e 30 a4 75
+89 a8 70 72 6f 74 6f 63 6f 6c a3 31 2e 30 a4 75
 73 65 72 a5 61 6c 69 63 65 ab 70 65 72 6d 69 73
 73 69 6f 6e 73 92 a4 72 65 61 64 a5 74 72 61 69
 6e a5 70 72 6f 6f 66 c4 20 79 36 18 65 56 d3 1d
@@ -1057,5 +1057,5 @@ The request `{"op": "health"}` with id 1 and its answer:
 
 18 00 00 00 11 00 00 00 01 00 00 00   header: length 24, type 0x11, flags 0, reserved 0, request id 1
 82 a6 73 74 61 74 75 73 a2 6f 6b a8 70 72 6f 74
-6f 63 6f 6c a3 32 2e 30
+6f 63 6f 6c a3 31 2e 30
 ```

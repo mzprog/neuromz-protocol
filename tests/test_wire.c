@@ -450,7 +450,7 @@ static void test_names_time_hosts(void) {
     nmzp_time_rfc3339(1764252309, t);
     CHECK(!strcmp(t, "2025-11-27T14:05:09Z"));
     CHECK(nmzp_parse_hostport("10.0.0.2:9000", host, sizeof host, &port) == 0 && !strcmp(host, "10.0.0.2") && port == 9000);
-    CHECK(nmzp_parse_hostport("http://10.0.0.2:9000", host, sizeof host, &port) != 0); /* protocol 1's URLs */
+    CHECK(nmzp_parse_hostport("http://10.0.0.2:9000", host, sizeof host, &port) != 0); /* URLs are not addresses */
     CHECK(nmzp_parse_hostport("gpu-box", host, sizeof host, &port) == 0 && port == NMZP_DEFAULT_PORT);
     CHECK(nmzp_parse_hostport("[::1]:81", host, sizeof host, &port) == 0 && !strcmp(host, "::1") && port == 81);
     CHECK(nmzp_parse_hostport("h:0", host, sizeof host, &port) != 0 && nmzp_parse_hostport("h:x", host, sizeof host, &port) != 0);

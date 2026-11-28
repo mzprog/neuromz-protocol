@@ -1,5 +1,5 @@
 {
-  "protocol": "2.0",
+  "protocol": "1.0",
   "note": "PROTOCOL.md section 17; values are typed JSON (see vectors.c)",
   "vectors": [
     {"name": "nil", "group": "value"},

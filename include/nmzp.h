@@ -1,4 +1,4 @@
-/* nmzp.h — the NeuroMZ protocol 2 (PROTOCOL.md) in C11: frames, the
+/* nmzp.h — the NeuroMZ protocol (PROTOCOL.md) in C11: frames, the
  * payload codec (a MessagePack subset), the handshake and its HMAC-SHA256
  * authentication, a client, sockets, SHA-256 and the protocol's name
  * rules. Used by neuromz-server and by the `neuromz` program's remote mode;
@@ -16,19 +16,19 @@
 extern "C" {
 #endif
 
-/* The wire protocol this library speaks. Its number is the major, 2: it
- * changes only when the bytes on the wire change incompatibly, and it is
- * not the version of any repository (PROTOCOL §5.4, §16). */
-#define NMZP_PROTOCOL "2.0" /* major.minor, as WELCOME and health say it */
-#define NMZP_PROTOCOL_MAJOR 2
+/* The protocol this library speaks: protocol 1. Its number is the major of
+ * the handshake; it changes only when the bytes on the wire change
+ * incompatibly (PROTOCOL §5.4, §16), and this repository's MAJOR with it. */
+#define NMZP_PROTOCOL "1.0" /* major.minor, as WELCOME and health say it */
+#define NMZP_PROTOCOL_MAJOR 1
 #define NMZP_PROTOCOL_MINOR 0
-/* This library, the repository's version: "2.0.0-dev" until the first
- * release (docs/DESIGN.md P38-P39). */
-#define NMZP_VERSION "2.0.0-dev"
-#define NMZP_VERSION_MAJOR 2
+/* This library, the repository's version: "1.0.0-dev" until its first
+ * release, 1.0.0 (docs/DESIGN.md P39). */
+#define NMZP_VERSION "1.0.0-dev"
+#define NMZP_VERSION_MAJOR 1
 #define NMZP_VERSION_MINOR 0
 #define NMZP_VERSION_PATCH 0
-#define NMZP_DEFAULT_PORT 8470
+#define NMZP_DEFAULT_PORT 6769 /* N-R-M-Z on a phone keypad (PROTOCOL §2) */
 
 /* ------------------------------------------------------------ buffers */
 

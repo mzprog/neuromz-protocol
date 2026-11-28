@@ -610,7 +610,7 @@ static void frames(void) {
     nmzp_mw_map(&w);
     nmzp_mw_kstr(&w, "server", "neuromz-server");
     nmzp_mw_kstr(&w, "version", "2.0.0-dev");
-    nmzp_mw_kint(&w, "min_major", 2);
+    nmzp_mw_kint(&w, "min_major", 1);
     nmzp_mw_kstr(&w, "auth", "hmac-sha256");
     nmzp_mw_kbin(&w, "nonce", ns, 32);
     nmzp_mw_kint(&w, "max_frame", 4194304);
@@ -640,7 +640,7 @@ static void frames(void) {
     nmzp_buf_clear(&p);
     nmzp_mw_init(&w, &p);
     nmzp_mw_map(&w);
-    nmzp_mw_kstr(&w, "protocol", "2.0");
+    nmzp_mw_kstr(&w, "protocol", "1.0");
     nmzp_mw_kstr(&w, "user", "alice");
     nmzp_mw_key(&w, "permissions");
     nmzp_mw_arr(&w);
@@ -666,7 +666,7 @@ static void frames(void) {
     nmzp_mw_init(&w, &p);
     nmzp_mw_map(&w);
     nmzp_mw_kstr(&w, "status", "ok");
-    nmzp_mw_kstr(&w, "protocol", "2.0");
+    nmzp_mw_kstr(&w, "protocol", "1.0");
     nmzp_mw_end_map(&w);
     frame_vector("frame-response", NMZP_RESPONSE, 0, 1, 0, &p, 0, "its RESPONSE");
     /* an upload: REQUEST MORE, DATA, END */
@@ -757,7 +757,7 @@ static void frames_invalid(void) {
     nmzp_head_encode(b, NMZP_DATA, NMZP_MORE, 1, 10);
     memcpy(b + 12, "abc", 3);
     frame_invalid("frame-truncated", b, 15, "incomplete", 65536, "10 bytes announced, 3 present: not a frame yet");
-    memcpy(b, "GET /v1/health HTTP/1.1\r\n", 25);
+    memcpy(b, "GET / HTTP/1.1\r\nHost: x\r\n", 25);
     frame_invalid("frame-http", b, 25, "frame_too_large", 65536,
                   "an HTTP request read as a frame header: 542393671 bytes announced");
     { /* a hello whose payload lacks the magic */

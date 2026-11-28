@@ -1,1 +1,1 @@
-{"name": "frame-response", "group": "frame", "size": 36, "note": "its RESPONSE", "type": 17, "type_name": "RESPONSE", "flags": 0, "id": 1, "length": 24, "payload": {"map": [["status", "ok"], ["protocol", "2.0"]]}}
+{"name": "frame-response", "group": "frame", "size": 36, "note": "its RESPONSE", "type": 17, "type_name": "RESPONSE", "flags": 0, "id": 1, "length": 24, "payload": {"map": [["status", "ok"], ["protocol", "1.0"]]}}

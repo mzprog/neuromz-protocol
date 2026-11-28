@@ -1,28 +1,32 @@
-# neuromz-protocol — the NeuroMZ protocol 2 (PROTOCOL.md), its wire format in
+# neuromz-protocol — the NeuroMZ protocol (PROTOCOL.md), its wire format in
 # C (the nmzp library), the shared test vectors and the conformance suite.
 #
 #   cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 #   cmake --build build                  libnmzp, nmz-conformance, the tests
 #   ctest --test-dir build               unit tests, the vectors, a short fuzz run
-#   build/nmz-conformance --host 127.0.0.1:8470 --token TOKEN
+#   build/nmz-conformance --host 127.0.0.1:6769 --token TOKEN
 #
 # Used by neuromz-server and neuromz-cli through FetchContent (or a local
 # checkout): they link nmzp::nmzp; the tests and the conformance program are
 # built only when this is the top project or NMZP_BUILD_CONFORMANCE is on.
 cmake_minimum_required(VERSION 3.21)
-project(neuromz_protocol VERSION 2.0.0 DESCRIPTION "The NeuroMZ protocol 2: spec, C wire library, test vectors, conformance suite"
+project(neuromz_protocol VERSION 1.0.0 DESCRIPTION "The NeuroMZ protocol: spec, C wire library, test vectors, conformance suite"
         LANGUAGES C)
 
 # The version string: CMake's VERSION holds numbers only, so the whole string
-# (2.0.0-dev until the first release, docs/DESIGN.md P38-P39) is here and in
+# (1.0.0-dev until the first release, docs/DESIGN.md P39) is here and in
 # include/nmzp.h (NMZP_VERSION, NMZP_VERSION_MAJOR/MINOR/PATCH); they must
-# agree with each other and with the VERSION above. The wire protocol has
-# its own number (NMZP_PROTOCOL_MAJOR, 2).
-set(NMZP_VERSION_STRING "2.0.0-dev")
+# agree with each other and with the VERSION above, and the MAJOR is the
+# protocol's number (NMZP_PROTOCOL_MAJOR, 1).
+set(NMZP_VERSION_STRING "1.0.0-dev")
 file(STRINGS "${PROJECT_SOURCE_DIR}/include/nmzp.h" _nmzp_h REGEX "^#define NMZP_VERSION(_MAJOR|_MINOR|_PATCH)? ")
 if(NOT _nmzp_h STREQUAL "#define NMZP_VERSION \"${NMZP_VERSION_STRING}\";#define NMZP_VERSION_MAJOR ${PROJECT_VERSION_MAJOR};#define NMZP_VERSION_MINOR ${PROJECT_VERSION_MINOR};#define NMZP_VERSION_PATCH ${PROJECT_VERSION_PATCH}"
    OR NOT NMZP_VERSION_STRING MATCHES "^${PROJECT_VERSION}(-|$)")
   message(FATAL_ERROR "include/nmzp.h (${_nmzp_h}) does not match the version here (${PROJECT_VERSION}, ${NMZP_VERSION_STRING})")
+endif()
+file(STRINGS "${PROJECT_SOURCE_DIR}/include/nmzp.h" _nmzp_major REGEX "^#define NMZP_PROTOCOL_MAJOR ")
+if(NOT _nmzp_major STREQUAL "#define NMZP_PROTOCOL_MAJOR ${PROJECT_VERSION_MAJOR}")
+  message(FATAL_ERROR "the MAJOR (${PROJECT_VERSION_MAJOR}) is not the protocol's number (${_nmzp_major})")
 endif()
 
 option(NMZP_WERROR "Treat compiler warnings as errors" ON)

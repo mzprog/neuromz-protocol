@@ -341,7 +341,8 @@ static void t_greeting(void) {
     if (!raw_open(&r)) return;
     g = r.greeting;
     EXPECT(nmzp_get_str(g, "server") && nmzp_get_str(g, "version"), "the greeting lacks server or version");
-    EXPECT(nmzp_get_int(g, "min_major", &mm) && mm >= 1 && mm <= 2, "min_major missing or not 2 (%lld)", mm);
+    EXPECT(nmzp_get_int(g, "min_major", &mm) && mm >= 1 && mm <= NMZP_PROTOCOL_MAJOR, "min_major missing or not 1 (%lld)",
+           mm);
     auth = nmzp_get_str(g, "auth");
     EXPECT(auth && (!strcmp(auth, "hmac-sha256") || !strcmp(auth, "none")), "auth is %s", auth ? auth : "missing");
     g_auth = !strcmp(auth, "hmac-sha256");
@@ -383,15 +384,15 @@ static void t_auth(void) {
         return;
     }
     if (!raw_open(&r)) return;
-    raw_hello(&r, 1, 2, "not-a-real-token-0123456789", 0);
+    raw_hello(&r, 1, NMZP_PROTOCOL_MAJOR, "not-a-real-token-0123456789", 0);
     EXPECT(raw_expect_error(&r, 0, "unauthorized", 1), "an unknown token: %s", g_why);
     raw_close(&r);
     if (!raw_open(&r)) return;
-    raw_hello(&r, 1, 2, g_token, 1);
+    raw_hello(&r, 1, NMZP_PROTOCOL_MAJOR, g_token, 1);
     EXPECT(raw_expect_error(&r, 0, "unauthorized", 1), "the right key id with a wrong proof: %s", g_why);
     raw_close(&r);
     if (!raw_open(&r)) return;
-    raw_hello(&r, 1, 2, NULL, 0);
+    raw_hello(&r, 1, NMZP_PROTOCOL_MAJOR, NULL, 0);
     EXPECT(raw_expect_error(&r, 0, "unauthorized", 1), "no proof at all: %s", g_why);
     raw_close(&r);
     if (!raw_open(&r)) return;
@@ -401,7 +402,7 @@ static void t_auth(void) {
         memcpy(ns, r.ns, 32);
         if (!raw_open(&r2)) return;
         memcpy(r2.ns, ns, 32); /* the old nonce */
-        raw_hello(&r2, 1, 2, g_token, 0);
+        raw_hello(&r2, 1, NMZP_PROTOCOL_MAJOR, g_token, 0);
         EXPECT(raw_expect_error(&r2, 0, "unauthorized", 1), "a proof for another connection's nonce: %s", g_why);
         raw_close(&r2);
     }
@@ -411,7 +412,7 @@ static void t_auth(void) {
 static void t_magic_version(void) {
     raw r;
     if (!raw_open(&r)) return;
-    raw_hello(&r, 0, 2, g_token[0] ? g_token : NULL, 0);
+    raw_hello(&r, 0, NMZP_PROTOCOL_MAJOR, g_token[0] ? g_token : NULL, 0);
     EXPECT(raw_expect_error(&r, 0, "bad_magic", 1), "a hello without the magic: %s", g_why);
     raw_close(&r);
     if (!raw_open(&r)) return;
@@ -427,13 +428,13 @@ static void t_magic_version(void) {
         nmzp_buf_free(&p);
         EXPECT(v && nmzp_get_str(v, "name") && !strcmp(nmzp_get_str(v, "name"), "unsupported_version"),
                "protocol 9: not unsupported_version");
-        EXPECT(nmzp_get_int(nmzp_get(v, "details"), "min_major", &mm) && mm == 2, "unsupported_version without details");
+        EXPECT(nmzp_get_int(nmzp_get(v, "details"), "min_major", &mm) && mm == 1, "unsupported_version without details");
         nmzp_val_free(v);
     }
     raw_close(&r);
     if (!raw_open(&r)) return;
     {
-        static const char http[] = "GET /v1/health HTTP/1.1\r\nHost: x\r\n\r\n";
+        static const char http[] = "GET / HTTP/1.1\r\nHost: x\r\n\r\n";
         nmzp_send_all(r.s, http, sizeof http - 1);
         EXPECT(raw_expect_error(&r, 0, "protocol_error", 1), "an HTTP request: %s", g_why);
     }
