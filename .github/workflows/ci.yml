@@ -26,7 +26,7 @@ env:
   # Testing is local (DESIGN P40); this workflow is kept for the badge.
   # The server pins this repository too; a commit that changes only CI or
   # documentation here needs no new pin there.
-  NMZ_SERVER_REF: ${{ inputs.server_ref != '' && inputs.server_ref || 'cf455e956aecd55c62fb38ba9d5a6a2828f162c6' }}
+  NMZ_SERVER_REF: ${{ inputs.server_ref != '' && inputs.server_ref || '942906447acc4c077e4d9d3cf9fcf477640ba153' }}
 
 jobs:
   linux:
