@@ -1,25 +1,12 @@
 /* util.c — SHA-256 (FIPS 180-4), HMAC-SHA256 (RFC 2104) and the
- * protocol's key derivation (PROTOCOL §6), constant-time comparison,
- * operating system randomness, UTF-8 validation, the protocol's name
- * rules, RFC 3339 times, clocks. */
-#if !defined(_WIN32)
-#define _POSIX_C_SOURCE 200809L
-#endif
-
+ * protocol's key derivation (PROTOCOL §6), constant-time comparison, UTF-8
+ * validation, the protocol's name rules, RFC 3339 times. Plain C11: what
+ * the operating system does (randomness, sleeping, clocks) is in sock.c. */
 #include "nmzp.h"
 
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
-
-#if defined(_WIN32)
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#include <bcrypt.h>
-#else
-#include <fcntl.h>
-#include <unistd.h>
-#endif
 
 /* ------------------------------------------------------------ SHA-256 */
 
@@ -190,27 +177,6 @@ int nmzp_ct_equal(const void *a, const void *b, size_t n) {
     return diff == 0;
 }
 
-int nmzp_random(void *p, size_t n) {
-#if defined(_WIN32)
-    return BCryptGenRandom(NULL, (PUCHAR)p, (ULONG)n, BCRYPT_USE_SYSTEM_PREFERRED_RNG) == 0 ? 0 : -1;
-#else
-    int fd = open("/dev/urandom", O_RDONLY);
-    unsigned char *c = (unsigned char *)p;
-    if (fd < 0) return -1;
-    while (n > 0) {
-        ssize_t k = read(fd, c, n);
-        if (k <= 0) {
-            close(fd);
-            return -1;
-        }
-        c += k;
-        n -= (size_t)k;
-    }
-    close(fd);
-    return 0;
-#endif
-}
-
 /* --------------------------------------------------------------- UTF-8 */
 
 int nmzp_utf8_valid(const char *s, size_t n) {
@@ -294,28 +260,3 @@ void nmzp_time_rfc3339(long long t, char out[32]) {
 
 long long nmzp_now(void) { return (long long)time(NULL); }
 
-void nmzp_sleep_ms(int ms) {
-#if defined(_WIN32)
-    Sleep((DWORD)(ms > 0 ? ms : 0));
-#else
-    struct timespec ts;
-    ts.tv_sec = ms / 1000;
-    ts.tv_nsec = (long)(ms % 1000) * 1000000L;
-    while (nanosleep(&ts, &ts) != 0) {
-    }
-#endif
-}
-
-double nmzp_clock(void) {
-#if defined(_WIN32)
-    static LARGE_INTEGER freq;
-    LARGE_INTEGER c;
-    if (!freq.QuadPart) QueryPerformanceFrequency(&freq);
-    QueryPerformanceCounter(&c);
-    return (double)c.QuadPart / (double)freq.QuadPart;
-#else
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return (double)ts.tv_sec + ts.tv_nsec * 1e-9;
-#endif
-}

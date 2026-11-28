@@ -1,7 +1,9 @@
-/* sock.c — the only file that talks to the socket API: Winsock 2 on
- * Windows, BSD sockets elsewhere. Timeouts use select (Windows) or poll;
- * writing to a closed connection never raises SIGPIPE (MSG_NOSIGNAL on
- * Linux, SO_NOSIGPIPE on macOS and the BSDs). */
+/* sock.c — the protocol library's portability layer (DESIGN P43), the only
+ * file that talks to the operating system: sockets (Winsock 2 on Windows,
+ * BSD sockets elsewhere; timeouts use select on Windows, poll elsewhere;
+ * writing to a closed connection never raises SIGPIPE: MSG_NOSIGNAL on
+ * Linux, SO_NOSIGPIPE on macOS and the BSDs), randomness
+ * (BCryptGenRandom, /dev/urandom), sleeping and the monotonic clock. */
 #if !defined(_WIN32)
 #define _POSIX_C_SOURCE 200809L
 #if defined(__APPLE__)
@@ -13,11 +15,14 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#include <windows.h>
+#include <bcrypt.h>
 typedef SOCKET sys_socket;
 #define SYS_BAD INVALID_SOCKET
 #define CLOSE closesocket
@@ -349,5 +354,54 @@ void nmzp_shutdown(nmzp_socket s) {
     shutdown(sys(s), SD_BOTH);
 #else
     shutdown(sys(s), SHUT_RDWR);
+#endif
+}
+
+/* ------------------------------------------- randomness, sleeping, clocks */
+
+int nmzp_random(void *p, size_t n) {
+#if defined(_WIN32)
+    return BCryptGenRandom(NULL, (PUCHAR)p, (ULONG)n, BCRYPT_USE_SYSTEM_PREFERRED_RNG) == 0 ? 0 : -1;
+#else
+    int fd = open("/dev/urandom", O_RDONLY);
+    unsigned char *c = (unsigned char *)p;
+    if (fd < 0) return -1;
+    while (n > 0) {
+        ssize_t k = read(fd, c, n);
+        if (k <= 0) {
+            close(fd);
+            return -1;
+        }
+        c += k;
+        n -= (size_t)k;
+    }
+    close(fd);
+    return 0;
+#endif
+}
+
+void nmzp_sleep_ms(int ms) {
+#if defined(_WIN32)
+    Sleep((DWORD)(ms > 0 ? ms : 0));
+#else
+    struct timespec ts;
+    ts.tv_sec = ms / 1000;
+    ts.tv_nsec = (long)(ms % 1000) * 1000000L;
+    while (nanosleep(&ts, &ts) != 0) {
+    }
+#endif
+}
+
+double nmzp_clock(void) {
+#if defined(_WIN32)
+    static LARGE_INTEGER freq;
+    LARGE_INTEGER c;
+    if (!freq.QuadPart) QueryPerformanceFrequency(&freq);
+    QueryPerformanceCounter(&c);
+    return (double)c.QuadPart / (double)freq.QuadPart;
+#else
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (double)ts.tv_sec + ts.tv_nsec * 1e-9;
 #endif
 }
