@@ -7,7 +7,7 @@
 name: CI
 on:
   push:
-    branches: [master]
+    branches: [2.0.0-dev, master] # development happens on 2.0.0-dev; master moves only at a release
     tags: ["v*"]
   pull_request:
   workflow_dispatch:
