@@ -14,6 +14,16 @@ GitHub releases were withdrawn on 2026-11-28. In those entries "protocol 1"
 is the HTTP stage of early development and "protocol 2" the binary
 protocol, which is protocol 1 since P44.
 
+### GCC 12 and Clang warnings, linux-check.sh — 2026-11-28
+
+- **Fixed: undefined behaviour when a connection broke** (`src/client.c`).
+  `broken(c, e, c->err)` passed the client's own error text to `set_err`,
+  which `snprintf`'d it into `c->err` itself: source and destination
+  overlapped (GCC 12 `-Wrestrict`). The text is now copied with an
+  overlap-safe, explicitly bounded copy that cuts at a UTF-8 character
+  boundary, into `nmzp_error.message` first and then into `c->err`
+  (also GCC's `-Wformat-truncation` at the two copies).
+
 ### Protocol 1, version 1.0.0-dev, port 6769 — 2026-11-28
 
 - **The binary protocol is protocol 1**: the handshake says major 1,

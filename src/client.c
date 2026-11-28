@@ -42,13 +42,25 @@ uint32_t nmzp_client_id(nmzp_client *c) {
     return c->next_id;
 }
 
+/* text into dst[n], cut to fit at a UTF-8 character boundary; src may
+ * overlap dst (snprintf's may not: broken(c, e, c->err) passes c->err) */
+static void copy_text(char *dst, size_t n, const char *src) {
+    size_t len = strlen(src);
+    if (len >= n) {
+        len = n - 1;
+        while (len > 0 && ((unsigned char)src[len] & 0xC0) == 0x80) len--; /* not inside a character */
+    }
+    memmove(dst, src, len);
+    dst[len] = '\0';
+}
+
 static void set_err(nmzp_client *c, nmzp_error *e, const char *msg) {
-    snprintf(c->err, sizeof c->err, "%s", msg);
-    if (e) {
+    if (e) { /* first, while msg is intact: msg may be c->err */
         e->code = -1;
         snprintf(e->name, sizeof e->name, "connection");
-        snprintf(e->message, sizeof e->message, "%s", msg);
+        copy_text(e->message, sizeof e->message, msg);
     }
+    copy_text(c->err, sizeof c->err, msg);
 }
 
 /* the connection failed: close it (the next call reconnects) */
