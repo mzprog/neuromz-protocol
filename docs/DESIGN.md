@@ -343,6 +343,15 @@ P45. **Port 6769.** N-R-M-Z on a phone keypad: the default port of the
     machine that runs that service sets `port` in server.conf and in the
     clients' profiles; nothing in the protocol depends on the number.
 
+P47. **Warnings are errors here, not in the projects that fetch `nmzp`.**
+    `NMZP_WERROR` is on when this repository is the top-level project (its
+    own builds, `linux-check.sh`, CI) and off when the program or the server
+    builds `nmzp` as a dependency, as the library does (library decision
+    122): a warning that a newer compiler adds must not stop someone from
+    building the program from its pins. GCC 12's `-Wrestrict` did exactly
+    that to `src/client.c`; the checks still see every warning, because
+    `linux-check.sh` turns `-DNMZP_WERROR=ON` on everywhere (P46).
+
 ## The HTTP stage (withdrawn)
 
 Kept for the record; where the protocol replaced a decision, it says so.

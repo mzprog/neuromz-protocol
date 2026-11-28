@@ -29,7 +29,10 @@ if(NOT _nmzp_major STREQUAL "#define NMZP_PROTOCOL_MAJOR ${PROJECT_VERSION_MAJOR
   message(FATAL_ERROR "the MAJOR (${PROJECT_VERSION_MAJOR}) is not the protocol's number (${_nmzp_major})")
 endif()
 
-option(NMZP_WERROR "Treat compiler warnings as errors" ON)
+# warnings are errors here, not in a project that fetches nmzp: a newer
+# compiler's new warning must not break someone's build (docs/DESIGN.md P47)
+option(NMZP_WERROR "Treat compiler warnings as errors (default: only when this is the top-level project)"
+       ${PROJECT_IS_TOP_LEVEL})
 option(NMZP_SANITIZE "AddressSanitizer + UndefinedBehaviorSanitizer (GCC/Clang)" OFF)
 option(NMZP_BUILD_TESTS "Build the unit and fuzz tests" ${PROJECT_IS_TOP_LEVEL})
 option(NMZP_BUILD_CONFORMANCE "Build nmz-conformance" ${PROJECT_IS_TOP_LEVEL})

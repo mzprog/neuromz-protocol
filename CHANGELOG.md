@@ -23,6 +23,11 @@ protocol, which is protocol 1 since P44.
   overlap-safe, explicitly bounded copy that cuts at a UTF-8 character
   boundary, into `nmzp_error.message` first and then into `c->err`
   (also GCC's `-Wformat-truncation` at the two copies).
+- **Warnings are errors only when this is the top-level project**
+  (`NMZP_WERROR` defaults to `PROJECT_IS_TOP_LEVEL`, P47): a newer
+  compiler's new warning no longer stops the program or the server from
+  building from their pins. `linux-check.sh` still builds with
+  `-DNMZP_WERROR=ON`.
 
 ### Protocol 1, version 1.0.0-dev, port 6769 — 2026-11-28
 
