@@ -1,14 +1,14 @@
-# CI for the protocol: nmzp and its tests (the shared vectors among them) on
-# Linux (GCC, Clang; Release, and ASan + UBSan with a longer fuzz run) and
-# Windows (MSVC); the vectors against an independent MessagePack
-# implementation; and the conformance suite against a live neuromz-server
+# CI for the protocol (the badge; testing is local, DESIGN P40): nmzp and its
+# tests (the shared vectors among them) on Linux (GCC, Clang; Release, and
+# ASan + UBSan with a longer fuzz run) and Windows (MSVC), and the
+# conformance suite against a live neuromz-server
 # built from its repository with this checkout of the protocol, on Linux
 # and Windows, at the server's pinned commit (DESIGN P41). A manual run may
 # name another ref of the server (to try a branch).
 name: CI
 on:
   push:
-    branches: [2.0.0-dev, master] # development happens on 2.0.0-dev; master moves only at a release
+    branches: [1.0.0-dev, master] # development happens on 1.0.0-dev; master moves only at a release
     tags: ["v*"]
   pull_request:
   workflow_dispatch:
@@ -23,6 +23,7 @@ permissions:
 
 env:
   # neuromz-server's pinned commit: a full SHA on its 2.0.0-dev (DESIGN P41).
+  # Testing is local (DESIGN P40); this workflow is kept for the badge.
   # The server pins this repository too; a commit that changes only CI or
   # documentation here needs no new pin there.
   NMZ_SERVER_REF: ${{ inputs.server_ref != '' && inputs.server_ref || 'dbbe389a4c7c9f2c2c773bec20dfb8656b0780eb' }}
@@ -73,19 +74,6 @@ jobs:
         run: cmake --build build --config Release -j 4
       - name: Test (unit, vectors, fuzz)
         run: ctest --test-dir build -C Release --output-on-failure
-
-  # The vectors through code that did not write them: msgpack-python and
-  # Python's hashlib/hmac (PROTOCOL.md §17).
-  vectors-independent:
-    name: Vectors against msgpack-python
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: pip install msgpack
-      - run: python tests/xcheck_msgpack.py tests/vectors
 
   # The suite against a live server: neuromz-server (its pinned commit, or
   # server_ref; with the NeuroMZ library at the commit it pins) built with this checkout
