@@ -16,10 +16,15 @@
 extern "C" {
 #endif
 
-#define NMZP_PROTOCOL "2.0" /* the protocol version this library speaks */
+/* The wire protocol this library speaks. Its number is the major, 2: it
+ * changes only when the bytes on the wire change incompatibly, and it is
+ * not the version of any repository (PROTOCOL §5.4, §16). */
+#define NMZP_PROTOCOL "2.0" /* major.minor, as WELCOME and health say it */
 #define NMZP_PROTOCOL_MAJOR 2
 #define NMZP_PROTOCOL_MINOR 0
-#define NMZP_VERSION "2.0.0" /* this library (the repository's version) */
+/* This library, the repository's version: "2.0.0-dev" until the first
+ * release (docs/DESIGN.md P38-P39). */
+#define NMZP_VERSION "2.0.0-dev"
 #define NMZP_VERSION_MAJOR 2
 #define NMZP_VERSION_MINOR 0
 #define NMZP_VERSION_PATCH 0

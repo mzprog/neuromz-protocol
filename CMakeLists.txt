@@ -13,6 +13,18 @@ cmake_minimum_required(VERSION 3.21)
 project(neuromz_protocol VERSION 2.0.0 DESCRIPTION "The NeuroMZ protocol 2: spec, C wire library, test vectors, conformance suite"
         LANGUAGES C)
 
+# The version string: CMake's VERSION holds numbers only, so the whole string
+# (2.0.0-dev until the first release, docs/DESIGN.md P38-P39) is here and in
+# include/nmzp.h (NMZP_VERSION, NMZP_VERSION_MAJOR/MINOR/PATCH); they must
+# agree with each other and with the VERSION above. The wire protocol has
+# its own number (NMZP_PROTOCOL_MAJOR, 2).
+set(NMZP_VERSION_STRING "2.0.0-dev")
+file(STRINGS "${PROJECT_SOURCE_DIR}/include/nmzp.h" _nmzp_h REGEX "^#define NMZP_VERSION(_MAJOR|_MINOR|_PATCH)? ")
+if(NOT _nmzp_h STREQUAL "#define NMZP_VERSION \"${NMZP_VERSION_STRING}\";#define NMZP_VERSION_MAJOR ${PROJECT_VERSION_MAJOR};#define NMZP_VERSION_MINOR ${PROJECT_VERSION_MINOR};#define NMZP_VERSION_PATCH ${PROJECT_VERSION_PATCH}"
+   OR NOT NMZP_VERSION_STRING MATCHES "^${PROJECT_VERSION}(-|$)")
+  message(FATAL_ERROR "include/nmzp.h (${_nmzp_h}) does not match the version here (${PROJECT_VERSION}, ${NMZP_VERSION_STRING})")
+endif()
+
 option(NMZP_WERROR "Treat compiler warnings as errors" ON)
 option(NMZP_SANITIZE "AddressSanitizer + UndefinedBehaviorSanitizer (GCC/Clang)" OFF)
 option(NMZP_BUILD_TESTS "Build the unit and fuzz tests" ${PROJECT_IS_TOP_LEVEL})
