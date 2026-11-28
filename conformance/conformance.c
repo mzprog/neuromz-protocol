@@ -369,7 +369,8 @@ static void t_handshake(void) {
     snprintf(c.name, sizeof c.name, "nmz-conformance");
     c.allow_no_auth = 1;
     EXPECT(nmzp_client_connect(&c, &e) == 0, "the handshake: %s", c.err);
-    EXPECT(c.major == 2 && c.user[0] && c.permissions[0] && c.max_inflight >= 1, "WELCOME lacks user, permissions or max_inflight");
+    EXPECT(c.major == NMZP_PROTOCOL_MAJOR && c.user[0] && c.permissions[0] && c.max_inflight >= 1,
+           "WELCOME lacks user, permissions or max_inflight, or the major is not %d", NMZP_PROTOCOL_MAJOR);
     g_max_inflight = c.max_inflight;
     g_idle = c.idle_timeout;
     EXPECT(c.max_frame >= 65536 && c.max_frame_out >= 65536, "max_frame below 65536");
@@ -714,7 +715,8 @@ static void t_server(void) {
     long long up = -1, started = 0;
     EXPECT(simple("health", NULL, NULL, &rp) == 0 && nmzp_get_str(rp.v, "status") && !strcmp(nmzp_get_str(rp.v, "status"), "ok"),
            "health: %s", rp.e.message);
-    EXPECT(nmzp_get_str(rp.v, "protocol") && !strncmp(nmzp_get_str(rp.v, "protocol"), "2.", 2), "health: protocol is not 2.x");
+    EXPECT(nmzp_get_str(rp.v, "protocol") && !strcmp(nmzp_get_str(rp.v, "protocol"), NMZP_PROTOCOL),
+           "health: protocol is not %s", NMZP_PROTOCOL);
     reply_free(&rp);
     EXPECT(simple("server.info", NULL, NULL, &rp) == 0, "server.info: %s", rp.e.message);
     EXPECT(nmzp_get_str(rp.v, "name") && nmzp_get_str(rp.v, "version") && nmzp_get_str(rp.v, "library"),
