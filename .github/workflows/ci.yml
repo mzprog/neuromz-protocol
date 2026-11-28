@@ -25,7 +25,7 @@ env:
   # neuromz-server's pinned commit: a full SHA on its 2.0.0-dev (DESIGN P41).
   # The server pins this repository too; a commit that changes only CI or
   # documentation here needs no new pin there.
-  NMZ_SERVER_REF: ${{ inputs.server_ref != '' && inputs.server_ref || '51048934515a9b5f21492629d2b544c8213cc7a6' }}
+  NMZ_SERVER_REF: ${{ inputs.server_ref != '' && inputs.server_ref || 'dbbe389a4c7c9f2c2c773bec20dfb8656b0780eb' }}
 
 jobs:
   linux:
