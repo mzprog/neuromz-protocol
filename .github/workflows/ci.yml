@@ -3,7 +3,8 @@
 # Windows (MSVC); the vectors against an independent MessagePack
 # implementation; and the conformance suite against a live neuromz-server
 # built from its repository with this checkout of the protocol, on Linux
-# and Windows. A manual run may name the server's ref (to try a branch).
+# and Windows, at the server's pinned commit (DESIGN P41). A manual run may
+# name another ref of the server (to try a branch).
 name: CI
 on:
   push:
@@ -13,12 +14,18 @@ on:
   workflow_dispatch:
     inputs:
       server_ref:
-        description: "A ref of neuromz-server for the conformance jobs (empty: master)"
+        description: "A ref of neuromz-server for the conformance jobs (empty: its pinned commit)"
         required: false
         default: ""
 
 permissions:
   contents: read
+
+env:
+  # neuromz-server's pinned commit: a full SHA on its 2.0.0-dev (DESIGN P41).
+  # The server pins this repository too; a commit that changes only CI or
+  # documentation here needs no new pin there.
+  NMZ_SERVER_REF: ${{ inputs.server_ref != '' && inputs.server_ref || '51048934515a9b5f21492629d2b544c8213cc7a6' }}
 
 jobs:
   linux:
@@ -80,8 +87,8 @@ jobs:
       - run: pip install msgpack
       - run: python tests/xcheck_msgpack.py tests/vectors
 
-  # The suite against a live server: neuromz-server (master, or server_ref;
-  # with the NeuroMZ library at the tag it pins) built with this checkout
+  # The suite against a live server: neuromz-server (its pinned commit, or
+  # server_ref; with the NeuroMZ library at the commit it pins) built with this checkout
   # of the protocol, started on a free port with a train and a read-only
   # token and a short idle timeout (the suite checks it).
   conformance:
@@ -98,7 +105,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           repository: mzprog/neuromz-server
-          ref: ${{ inputs.server_ref }}
+          ref: ${{ env.NMZ_SERVER_REF }}
           path: server
       - uses: ilammy/msvc-dev-cmd@v1
         if: runner.os == 'Windows'
