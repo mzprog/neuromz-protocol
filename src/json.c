@@ -176,6 +176,7 @@ static int parse_number(parser *ps, double *out) {
     const char *s = ps->p;
     char tmp[64];
     size_t n;
+    *out = 0; /* set on every path (GCC -Os: -Wmaybe-uninitialized in parse_value) */
     if (ps->p < ps->end && *ps->p == '-') ps->p++;
     if (ps->p >= ps->end) return failp(ps, "bad number");
     if (*ps->p == '0') {

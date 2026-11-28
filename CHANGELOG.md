@@ -31,6 +31,9 @@ protocol, which is protocol 1 since P44.
 - **Docs: P46**, shared by every repository: before any push,
   `linux-check.sh` passes on Linux (GCC and Clang, plain and with ASan +
   UBSan, warnings as errors, every suite).
+- **Warning fixed in `src/json.c`** (GCC 12 at `-Os`,
+  `-Wmaybe-uninitialized`): `parse_number` sets its result on every path.
+  No change in behaviour.
 
 ### Protocol 1, version 1.0.0-dev, port 6769 — 2026-11-28
 
