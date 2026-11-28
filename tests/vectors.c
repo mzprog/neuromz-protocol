@@ -609,7 +609,7 @@ static void frames(void) {
     nmzp_mw_init(&w, &p);
     nmzp_mw_map(&w);
     nmzp_mw_kstr(&w, "server", "neuromz-server");
-    nmzp_mw_kstr(&w, "version", "0.2.0");
+    nmzp_mw_kstr(&w, "version", "2.0.0-dev");
     nmzp_mw_kint(&w, "min_major", 2);
     nmzp_mw_kstr(&w, "auth", "hmac-sha256");
     nmzp_mw_kbin(&w, "nonce", ns, 32);
@@ -629,7 +629,7 @@ static void frames(void) {
     nmzp_mw_init(&w, &p);
     nmzp_mw_map(&w);
     nmzp_mw_kstr(&w, "client", "neuromz-cli");
-    nmzp_mw_kstr(&w, "version", "2.3.0");
+    nmzp_mw_kstr(&w, "version", "2.0.0-dev");
     nmzp_mw_kstr(&w, "auth", "hmac-sha256");
     nmzp_mw_kbin(&w, "key_id", kid, 8);
     nmzp_mw_kbin(&w, "nonce", nc, 32);

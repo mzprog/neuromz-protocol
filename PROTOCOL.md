@@ -13,8 +13,9 @@ a live server. The models are those of the
 [NeuroMZ library](https://github.com/mzprog/neuromz).
 
 Protocol 1 (HTTP/1.1 + JSON, 2026) is withdrawn: servers of this version
-do not speak HTTP at all. It remains in this repository's history (tag
-`v1.0.0`) and in [`CHANGELOG.md`](CHANGELOG.md).
+do not speak HTTP at all. It remains in this repository's git history and
+in [`CHANGELOG.md`](CHANGELOG.md). The protocol's number (2) is its own, not
+the version of a program or a repository (§16).
 
 Contents:
 [1 conventions](#1-conventions) ·
@@ -55,7 +56,7 @@ Contents:
 * **Times** are `int` seconds since 1970-01-01 00:00 UTC; sizes are bytes;
   durations are seconds (`float` unless said otherwise). A number that is
   not finite (a NaN loss) is sent as `nil`.
-* **Unknown map keys** are ignored by both sides: later minor versions add
+* **Unknown map keys** are ignored by both sides: later additions bring new
   keys (§16).
 * **Lists** are maps: `{"items": [...]}`.
 * **Samples count from 0.**
@@ -260,7 +261,7 @@ The map:
 | key | type | |
 |---|---|---|
 | `"server"` | str | the server program (`"neuromz-server"`) |
-| `"version"` | str | its version (`"0.2.0"`) |
+| `"version"` | str | the program's version (`"2.0.0-dev"`), not the protocol's |
 | `"min_major"` | int | the lowest protocol major it accepts (2) |
 | `"auth"` | str | `"hmac-sha256"` (§6) or `"none"` (every client is `anonymous`) |
 | `"nonce"` | bin | 32 random bytes from the operating system, new for every connection |
@@ -305,9 +306,12 @@ A map:
 
 ### 5.4 Versions
 
-The protocol has a major and a minor version. Majors are incompatible
-with each other; a minor adds operations, map keys, capabilities and error
-codes that older peers ignore (§16).
+The handshake carries a major and a minor version. The major is the
+protocol's number (2 here), and majors are incompatible with each other.
+The minor is 0 and stays 0: additions within a major come as capabilities
+and as operations, map keys and error codes that older peers ignore
+(§16). The rules below still say what a peer does with a minor it does not
+know.
 
 * The **client** reads the greeting's magic first: anything else means the
   peer is not a NeuroMZ server of protocol 2 or later (a server of
@@ -919,18 +923,24 @@ or both (`server.capabilities` → `save`); others get `save_not_allowed`.
 
 ## 16. Versions and extensions
 
-This is protocol **2.0**. A 2.x server answers every 2.0 request as
-documented here; later minor versions only add operations, map keys,
-capabilities, error codes and event types — never a change in a frame
-header or in the meaning of what exists. Peers ignore map keys and event
-types they do not know, and treat unknown error codes by their range
-(§11). An incompatible change is a new major version, negotiated in the
-handshake (§5.4).
+This is protocol **2** (major 2, minor 0 in the handshake). The number is
+the protocol's own: it is not the version of neuromz-server, of the
+program or of this repository, and it changes only when the bytes on the
+wire change incompatibly — then it is a new major, negotiated in the
+handshake (§5.4). Within protocol 2 a server answers every request as
+documented here, and additions (operations, map keys, error codes, event
+types) never change a frame header or the meaning of what exists. A new
+feature comes with a capability (§16.1): a client checks the greeting's
+`capabilities` before it uses the feature, and a server without it answers
+with a clear error (`unknown_operation` for an operation it does not have,
+`invalid_argument` for an argument it does not take), never a broken
+connection. Peers ignore map keys and event types they do not know, and
+treat unknown error codes by their range (§11).
 
 ### 16.1 Capabilities
 
 The greeting's `capabilities` (and `server.capabilities` → `capabilities`)
-name optional parts; in 2.0:
+name optional parts; in protocol 2 so far:
 
 | capability | |
 |---|---|
@@ -982,19 +992,19 @@ The server's GREETING — header, the fixed 12 bytes, the map
 (`tests/vectors/frame-greeting.bin`):
 
 ```
-b6 00 00 00 01 00 00 00 00 00 00 00   header: length 182, type 0x01, flags 0, reserved 0, request id 0
+ba 00 00 00 01 00 00 00 00 00 00 00   header: length 186, type 0x01, flags 0, reserved 0, request id 0
 4e 4d 5a 50 0d 0a 1a 0a 02 00 00 00   magic "NMZP\r\n\x1a\n", major 2, minor 0
 88 a6 73 65 72 76 65 72 ae 6e 65 75 72 6f 6d 7a
-2d 73 65 72 76 65 72 a7 76 65 72 73 69 6f 6e a5
-30 2e 32 2e 30 a9 6d 69 6e 5f 6d 61 6a 6f 72 02
-a4 61 75 74 68 ab 68 6d 61 63 2d 73 68 61 32 35
-36 a5 6e 6f 6e 63 65 c4 20 10 11 12 13 14 15 16
-17 18 19 1a 1b 1c 1d 1e 1f 20 21 22 23 24 25 26
-27 28 29 2a 2b 2c 2d 2e 2f a9 6d 61 78 5f 66 72
-61 6d 65 ce 00 40 00 00 ac 63 61 70 61 62 69 6c
-69 74 69 65 73 94 a6 65 76 65 6e 74 73 a8 67 65
-6e 65 72 61 74 65 a5 74 72 61 63 65 a3 66 33 32
-a6 73 74 61 74 75 73 a2 6f 6b
+2d 73 65 72 76 65 72 a7 76 65 72 73 69 6f 6e a9
+32 2e 30 2e 30 2d 64 65 76 a9 6d 69 6e 5f 6d 61
+6a 6f 72 02 a4 61 75 74 68 ab 68 6d 61 63 2d 73
+68 61 32 35 36 a5 6e 6f 6e 63 65 c4 20 10 11 12
+13 14 15 16 17 18 19 1a 1b 1c 1d 1e 1f 20 21 22
+23 24 25 26 27 28 29 2a 2b 2c 2d 2e 2f a9 6d 61
+78 5f 66 72 61 6d 65 ce 00 40 00 00 ac 63 61 70
+61 62 69 6c 69 74 69 65 73 94 a6 65 76 65 6e 74
+73 a8 67 65 6e 65 72 61 74 65 a5 74 72 61 63 65
+a3 66 33 32 a6 73 74 61 74 75 73 a2 6f 6b
 ```
 
 Reading the map: `88` is a map of 8 pairs; `a6 73 65 72 76 65 72` the str
@@ -1008,18 +1018,18 @@ The client's HELLO (`frame-hello.bin`) — `key_id`, `nonce` and `proof` are
 the `auth.json` values for the test token and these nonces:
 
 ```
-a0 00 00 00 02 00 00 00 00 00 00 00   header: length 160, type 0x02, flags 0, reserved 0, request id 0
+a4 00 00 00 02 00 00 00 00 00 00 00   header: length 164, type 0x02, flags 0, reserved 0, request id 0
 4e 4d 5a 50 0d 0a 1a 0a 02 00 00 00   magic "NMZP\r\n\x1a\n", major 2, minor 0
 86 a6 63 6c 69 65 6e 74 ab 6e 65 75 72 6f 6d 7a
-2d 63 6c 69 a7 76 65 72 73 69 6f 6e a5 32 2e 33
-2e 30 a4 61 75 74 68 ab 68 6d 61 63 2d 73 68 61
-32 35 36 a6 6b 65 79 5f 69 64 c4 08 89 4d 4c 6a
-41 59 dd 49 a5 6e 6f 6e 63 65 c4 20 a0 a1 a2 a3
-a4 a5 a6 a7 a8 a9 aa ab ac ad ae af b0 b1 b2 b3
-b4 b5 b6 b7 b8 b9 ba bb bc bd be bf a5 70 72 6f
-6f 66 c4 20 90 39 9e 87 d0 19 31 ee 54 9c 9c 95
-c2 81 10 c8 0a e1 5e 09 02 7f c1 d2 23 bf 90 52
-bc 03 1b 2f
+2d 63 6c 69 a7 76 65 72 73 69 6f 6e a9 32 2e 30
+2e 30 2d 64 65 76 a4 61 75 74 68 ab 68 6d 61 63
+2d 73 68 61 32 35 36 a6 6b 65 79 5f 69 64 c4 08
+89 4d 4c 6a 41 59 dd 49 a5 6e 6f 6e 63 65 c4 20
+a0 a1 a2 a3 a4 a5 a6 a7 a8 a9 aa ab ac ad ae af
+b0 b1 b2 b3 b4 b5 b6 b7 b8 b9 ba bb bc bd be bf
+a5 70 72 6f 6f 66 c4 20 90 39 9e 87 d0 19 31 ee
+54 9c 9c 95 c2 81 10 c8 0a e1 5e 09 02 7f c1 d2
+23 bf 90 52 bc 03 1b 2f
 ```
 
 The server's WELCOME (`frame-welcome.bin`):

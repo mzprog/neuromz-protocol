@@ -181,8 +181,8 @@ int nmzp_client_connect(nmzp_client *c, nmzp_error *e) {
     if (r <= 0) {
         if (r == 0)
             snprintf(msg, sizeof msg,
-                     "%s:%d sent no greeting within %d s: it is not a NeuroMZ server of protocol 2 (a neuromz-server 0.1 "
-                     "speaks HTTP, protocol 1)",
+                     "%s:%d sent no greeting within %d s: it is not a NeuroMZ server of protocol 2 (a server of "
+                     "protocol 1 speaks HTTP)",
                      c->host, c->port, c->timeout_ms / 1000);
         else snprintf(msg, sizeof msg, "%s", c->err);
         goto fail;
